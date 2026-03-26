@@ -16,7 +16,7 @@ export class SessionsService {
         userId: string;
         ipAddress: string;
         userAgent: string
-    }): Promise<String> {
+    }): Promise<string> {
         const sessionId = randomBytes(32).toString('hex');
         const newSession = new this.sessionModel({
             sessionId,
@@ -32,15 +32,40 @@ export class SessionsService {
     }
 
     async findSession(sessionId: string): Promise<Session | null> {
-        const session = await this.sessionModel.findOne({ sessionId }).exec();
+        const session = await this.sessionModel.findOne({
+            sessionId,
+            isRevoked: false,
+            expirationTime: { $gt: new Date() }
+        }).exec();
         return session;
     }
 
     async revokeSession(sessionId: string): Promise<void> {
-        await this.sessionModel.findByIdAndUpdate({ sessionId }, { isRevoked: true }).exec();
+        await this.sessionModel.findOneAndUpdate(
+            { sessionId },
+            { isRevoked: true },
+        ).exec();
+    }
+
+    async revokeAllSessionsForUserId(userId: string): Promise<void> {
+        await this.sessionModel.updateMany(
+            { userId },
+            { isRevoked: true },
+        ).exec();
     }
 
     async deleteSession(sessionId: string): Promise<void> {
-        await this.sessionModel.findByIdAndDelete({ sessionId }).exec();
+        await this.sessionModel.findOneAndDelete({ sessionId }).exec();
+    }
+
+    async deleteAllSessionsForUserId(userId: string): Promise<void> {
+        await this.sessionModel.deleteMany({ userId }).exec();
+    }
+
+    async updateActivity(sessionId: string) {
+        await this.sessionModel.updateOne(
+            { sessionId },
+            { lastActivity: new Date() },
+        ).exec();
     }
 }
