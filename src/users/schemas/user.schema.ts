@@ -8,8 +8,8 @@ export class User {
     @Prop({ required: true, unique: true })
     username!: string;
 
-    @Prop({ unique: true })
-    email!: string;
+    @Prop({ type: String, unique: true, required: false })
+    email?: string;
 
     @Prop({ required: true })
     passwordHash!: string;

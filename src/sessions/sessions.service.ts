@@ -14,8 +14,8 @@ export class SessionsService {
         userAgent
     }: {
         userId: string;
-        ipAddress: string;
-        userAgent: string
+        ipAddress: string | undefined;
+        userAgent: string | undefined;
     }): Promise<string> {
         const sessionId = randomBytes(32).toString('hex');
         const newSession = new this.sessionModel({

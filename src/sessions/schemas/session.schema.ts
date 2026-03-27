@@ -11,11 +11,11 @@ export class Session {
     @Prop({ required: true })
     userId!: string;
 
-    @Prop({ required: true })
-    ipAddress!: string;
+    @Prop({ type: String, required: false })
+    ipAddress?: string;
 
-    @Prop({ required: true })
-    userAgent!: string;
+    @Prop({ type: String, required: false })
+    userAgent?: string;
 
     @Prop({ required: true })
     lastActivity!: Date;
