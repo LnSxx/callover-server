@@ -1,9 +1,10 @@
-import { Body, Controller, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, InternalServerErrorException, Post, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignInDto } from './dto/sign-in.dto';
 import type { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { Public } from 'src/common/decorators/public.decorator';
+import { SignInResponseDto } from './dto/sign-in.response.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -15,20 +16,27 @@ export class AuthController {
         @Body() signInDto: SignInDto,
         @Req() req: Request,
         @Res({ passthrough: true }) res: Response,
-    ) {
-        const result = await this.authService.signIn({
-            username: signInDto.username,
-            email: signInDto.email,
-            password: signInDto.password,
-            ipAddress: req.ip,
-            userAgent: JSON.stringify(req.headers['User-Agent']),
-        });
-        if (result) {
-            res.cookie('sessionId', result, {
+    ): Promise<SignInResponseDto> {
+        try {
+            const result = await this.authService.signIn({
+                username: signInDto.username,
+                email: signInDto.email,
+                password: signInDto.password,
+                ipAddress: req.ip,
+                userAgent: JSON.stringify(req.headers['User-Agent']),
+            });
+            res.cookie('sessionId', result.sessionId, {
                 httpOnly: true,
                 signed: true,
                 secure: true,
             })
+            return {
+                id: result.id,
+                username: result.username,
+                email: result.email
+            }
+        } catch (err) {
+            throw new InternalServerErrorException();
         }
     }
 
@@ -38,19 +46,26 @@ export class AuthController {
         @Body() signInDto: RegisterDto,
         @Req() req: Request,
         @Res({ passthrough: true }) res: Response,
-    ) {
-        const result = await this.authService.register({
-            username: signInDto.username,
-            password: signInDto.password,
-            ipAddress: req.ip,
-            userAgent: JSON.stringify(req.headers['User-Agent']),
-        });
-        if (result) {
-            res.cookie('sessionId', result, {
+    ): Promise<SignInResponseDto> {
+        try {
+            const result = await this.authService.register({
+                username: signInDto.username,
+                password: signInDto.password,
+                ipAddress: req.ip,
+                userAgent: JSON.stringify(req.headers['User-Agent']),
+            });
+            res.cookie('sessionId', result.sessionId, {
                 httpOnly: true,
                 signed: true,
                 secure: true,
             })
+            return {
+                id: result.id,
+                username: result.username,
+                email: result.email
+            }
+        } catch (err) {
+            throw new InternalServerErrorException();
         }
     }
 }

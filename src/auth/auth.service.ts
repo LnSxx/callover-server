@@ -23,7 +23,12 @@ export class AuthService {
         ipAddress: string | undefined;
         userAgent: string | undefined;
     }
-    ): Promise<string> {
+    ): Promise<{
+        id: string,
+        username: string,
+        email: string | undefined,
+        sessionId: string,
+    }> {
         const user = await this.usersService.findBy(username, email);
 
         // User not found
@@ -45,7 +50,12 @@ export class AuthService {
             userAgent: userAgent,
         })
 
-        return newSessionId;
+        return {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            sessionId: newSessionId,
+        };
     }
 
     async register({
@@ -58,7 +68,12 @@ export class AuthService {
         password: string;
         ipAddress: string | undefined;
         userAgent: string | undefined;
-    }): Promise<string> {
+    }): Promise<{
+        id: string,
+        username: string,
+        email: string | undefined,
+        sessionId: string,
+    }> {
         const existingUserWithUsername = await this.usersService.findBy(username);
 
         if (existingUserWithUsername) {
@@ -74,6 +89,11 @@ export class AuthService {
             userAgent: userAgent,
         })
 
-        return newSessionId;
+        return {
+            id: newUser.id,
+            username: newUser.username,
+            email: newUser.email,
+            sessionId: newSessionId,
+        };
     }
 }
