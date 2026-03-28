@@ -4,7 +4,7 @@ import { IsString } from "class-validator";
 export class SignInDto {
     @ApiPropertyOptional({
         description: 'Either username or email must be provided',
-        example: 'callover_user',
+        example: 'calloveruser',
     })
     username: string | undefined;
 
@@ -14,7 +14,9 @@ export class SignInDto {
     })
     email: string | undefined;
 
-    @ApiProperty({ example: 'u3ersPAs$w0Rd' })
+    @ApiProperty({
+        example: 'u3ersPAs$w0Rd',
+    })
     @IsString()
     password!: string;
 }
