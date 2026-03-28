@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { SessionsService } from 'src/sessions/sessions.service';
 import { UsersService } from 'src/users/users.service';
 
@@ -24,7 +24,7 @@ export class AuthService {
         userAgent: string | undefined;
     }
     ): Promise<string> {
-        const user = await this.usersService.findByUsernameAndEmail({ username, email });
+        const user = await this.usersService.findBy(username, email);
 
         // User not found
         if (!user) {
@@ -41,6 +41,35 @@ export class AuthService {
 
         const newSessionId = await this.sessionsService.create({
             userId: user.id,
+            ipAddress: ipAddress,
+            userAgent: userAgent,
+        })
+
+        return newSessionId;
+    }
+
+    async register({
+        username,
+        password,
+        ipAddress,
+        userAgent,
+    }: {
+        username: string;
+        password: string;
+        ipAddress: string | undefined;
+        userAgent: string | undefined;
+    }): Promise<string> {
+        const existingUserWithUsername = await this.usersService.findBy(username);
+
+        if (existingUserWithUsername) {
+            // User with given username exists in database
+            throw new BadRequestException('Username is taken');
+        }
+
+        const newUser = await this.usersService.create({ username, password });
+
+        const newSessionId = await this.sessionsService.create({
+            userId: newUser.id,
             ipAddress: ipAddress,
             userAgent: userAgent,
         })
