@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import { Injectable } from '@nestjs/common';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserDto } from './dto/update_user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
 import { Model } from 'mongoose';
@@ -24,6 +24,11 @@ export class UsersService {
     return createdUser.save();
   }
 
+  async findById(id: string | undefined) {
+    const result = await this.userModel.findById(id).exec();
+    return result;
+  }
+
   async findBy(username: string | undefined, email?: string | undefined) {
     if (!username && !email) {
       return null;
@@ -37,9 +42,32 @@ export class UsersService {
     return null;
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) { }
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    const updateData: Partial<User> = {};
 
-  remove(id: number) {
+    if (updateUserDto.username) {
+      updateData.username = updateUserDto.username;
+    }
+
+    if (updateUserDto.email) {
+      updateData.email = updateUserDto.email;
+    }
+
+    if (updateUserDto.password) {
+      const passwordHash = await bcrypt.hash(updateUserDto.password, 10);
+      updateData.passwordHash = passwordHash;
+    }
+
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(id, updateData, {
+        new: true,
+      })
+      .exec();
+
+    return updatedUser;
+  }
+
+  remove(id: string) {
     this.userModel.findByIdAndDelete(id).exec();
   }
 }

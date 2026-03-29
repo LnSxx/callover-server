@@ -1,24 +1,37 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Body, Patch, Delete, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { AuthGuard } from 'src/auth/auth.guard';
+import { UpdateUserDto } from './dto/update_user.dto';
+import { CurrentUser } from 'src/common/decorators/current_user.decorator';
+import { GetMeResponseDto } from './dto/get_me.response.dto';
+import { UpdateMeResponseDto } from './dto/update_me.response.dto';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
-  @Get(':id')
-  get(@Param('id') id: string) {
-    //
+  @Get('me')
+  async get(@CurrentUser() user: { id: string }): Promise<GetMeResponseDto> {
+    const res = await this.usersService.findById(user.id)
+    if (res) {
+      return res;
+    }
+    throw new NotFoundException();
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(+id, updateUserDto);
+  @Patch('me')
+  async update(
+    @CurrentUser() user: { id: string },
+    @Body() updateUserDto: UpdateUserDto
+  ): Promise<UpdateMeResponseDto> {
+    const updated = await this.usersService.update(user.id, updateUserDto);
+    if (updated) {
+      return updated;
+    }
+    throw new InternalServerErrorException();
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
+  @Delete('me')
+  remove(@CurrentUser() user: { id: string }) {
+    return this.usersService.remove(user.id);
   }
 }

@@ -1,10 +1,11 @@
 import { Body, Controller, InternalServerErrorException, Post, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { SignInDto } from './dto/sign-in.dto';
+import { SignInDto } from './dto/sign_in.dto';
 import type { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { Public } from 'src/common/decorators/public.decorator';
-import { SignInResponseDto } from './dto/sign-in.response.dto';
+import { SignInResponseDto } from './dto/sign_in.response.dto';
+import { RegisterResponseDto } from './dto/register.response.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -31,9 +32,11 @@ export class AuthController {
                 secure: true,
             })
             return {
-                id: result.id,
-                username: result.username,
-                email: result.email
+                user: {
+                    id: result.id,
+                    username: result.username,
+                    email: result.email
+                }
             }
         } catch (err) {
             throw new InternalServerErrorException();
@@ -46,7 +49,7 @@ export class AuthController {
         @Body() signInDto: RegisterDto,
         @Req() req: Request,
         @Res({ passthrough: true }) res: Response,
-    ): Promise<SignInResponseDto> {
+    ): Promise<RegisterResponseDto> {
         try {
             const result = await this.authService.register({
                 username: signInDto.username,
@@ -60,9 +63,11 @@ export class AuthController {
                 secure: true,
             })
             return {
-                id: result.id,
-                username: result.username,
-                email: result.email
+                user: {
+                    id: result.id,
+                    username: result.username,
+                    email: result.email
+                }
             }
         } catch (err) {
             throw new InternalServerErrorException();
