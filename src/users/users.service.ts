@@ -68,6 +68,6 @@ export class UsersService {
   }
 
   remove(id: string) {
-    this.userModel.findByIdAndDelete(id).exec();
+    return this.userModel.findByIdAndDelete(id).exec();
   }
 }
