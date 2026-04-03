@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   InternalServerErrorException,
   Post,
   Req,
@@ -58,9 +59,6 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<RegisterResponseDto> {
-    console.log({
-      dto: signInDto,
-    });
     const result = await this.authService.register({
       username: signInDto.username,
       password: signInDto.password,
@@ -70,6 +68,8 @@ export class AuthController {
     res.cookie('sessionId', result.sessionId, {
       httpOnly: true,
       signed: true,
+      sameSite: 'lax',
+      secure: false,
     });
     return {
       user: {
@@ -78,5 +78,18 @@ export class AuthController {
         email: result.email,
       },
     };
+  }
+
+  @Delete('logout')
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const sessionId = req.signedCookies['sessionId'];
+    await this.authService.logout(sessionId);
+    res.cookie('sessionId', '', {
+      httpOnly: true,
+      signed: true,
+      sameSite: 'lax',
+      secure: false,
+      expires: new Date(0),
+    });
   }
 }

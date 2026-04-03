@@ -18,4 +18,4 @@ import { AuthGuard } from './auth.guard';
   ],
   exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}
