@@ -7,14 +7,16 @@ import { Model } from 'mongoose';
 
 @Injectable()
 export class ContactsService {
-  constructor(@InjectModel(Contact.name) private сontactModel: Model<Contact>) { }
+  constructor(
+    @InjectModel(Contact.name) private сontactModel: Model<Contact>,
+  ) {}
 
   create({
     ownerId,
     contactData,
   }: {
     ownerId: string;
-    contactData: CreateContactDto,
+    contactData: CreateContactDto;
   }) {
     const newContact = new this.сontactModel({
       ownerId: ownerId,
@@ -26,7 +28,7 @@ export class ContactsService {
   }
 
   findAll(ownerId: string) {
-    return this.сontactModel.find({ ownerId: ownerId })
+    return this.сontactModel.find({ ownerId: ownerId });
   }
 
   findOne(id: string) {

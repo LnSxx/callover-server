@@ -6,6 +6,7 @@ import {
   Delete,
   NotFoundException,
   InternalServerErrorException,
+  Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update_user.dto';
