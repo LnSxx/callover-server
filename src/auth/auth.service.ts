@@ -30,7 +30,8 @@ export class AuthService {
     id: string;
     username: string;
     email: string | undefined;
-    sessionId: string;
+    sessionId: string | undefined;
+    sessionExpirationDate: Date | undefined;
   }> {
     const user = await this.usersService.findBy(username, email);
 
@@ -50,7 +51,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const newSessionId = await this.sessionsService.create({
+    const newSession = await this.sessionsService.create({
       userId: user.id,
       ipAddress: ipAddress,
       userAgent: userAgent,
@@ -60,7 +61,8 @@ export class AuthService {
       id: user.id,
       username: user.username,
       email: user.email,
-      sessionId: newSessionId,
+      sessionId: newSession?.sessionId,
+      sessionExpirationDate: newSession?.expirationTime,
     };
   }
 
@@ -78,7 +80,8 @@ export class AuthService {
     id: string;
     username: string;
     email: string | undefined;
-    sessionId: string;
+    sessionId: string | undefined;
+    sessionExpirationDate: Date | undefined;
   }> {
     const existingUserWithUsername = await this.usersService.findBy(username);
 
@@ -89,7 +92,7 @@ export class AuthService {
 
     const newUser = await this.usersService.create({ username, password });
 
-    const newSessionId = await this.sessionsService.create({
+    const newSession = await this.sessionsService.create({
       userId: newUser.id,
       ipAddress: ipAddress,
       userAgent: userAgent,
@@ -99,7 +102,8 @@ export class AuthService {
       id: newUser.id,
       username: newUser.username,
       email: newUser.email,
-      sessionId: newSessionId,
+      sessionId: newSession?.sessionId,
+      sessionExpirationDate: newSession?.expirationTime,
     };
   }
 

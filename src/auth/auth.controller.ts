@@ -39,6 +39,7 @@ export class AuthController {
         signed: true,
         sameSite: 'lax',
         secure: false,
+        expires: result.sessionExpirationDate,
       });
       return {
         user: {
@@ -70,6 +71,7 @@ export class AuthController {
       signed: true,
       sameSite: 'lax',
       secure: false,
+      expires: result.sessionExpirationDate,
     });
     return {
       user: {
