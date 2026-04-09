@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { UsersModule } from './users/users.module';
+import { UsersModule } from './modules/users/users.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
-import { SessionsModule } from './sessions/sessions.module';
-import { AuthModule } from './auth/auth.module';
-import { ContactsModule } from './contacts/contacts.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { ContactsModule } from './modules/contacts/contacts.module';
+import { PresenceService } from './modules/presence/presence.service';
 
 @Module({
   imports: [
@@ -17,6 +17,6 @@ import { ContactsModule } from './contacts/contacts.module';
     ContactsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, PresenceService],
 })
-export class AppModule { }
+export class AppModule {}

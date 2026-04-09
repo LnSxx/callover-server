@@ -22,7 +22,7 @@ async function bootstrap() {
   app.use(cookieParser(process.env.COOKIE_SECRET!));
   app.use(
     cors({
-      origin: 'http://192.168.0.145:5173',
+      origin: ['http://localhost:5173'],
       credentials: true,
     }),
   );

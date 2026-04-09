@@ -7,7 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY } from 'src/common/decorators/public.decorator';
-import { SessionsService } from 'src/sessions/sessions.service';
+import { SessionsService } from 'src/modules/sessions/sessions.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
