@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { PresenceService } from './modules/presence/presence.service';
+import { RealtimeModule } from './modules/realtime/realtime.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { PresenceService } from './modules/presence/presence.service';
     AuthModule,
     UsersModule,
     ContactsModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [AppService, PresenceService],
