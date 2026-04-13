@@ -6,8 +6,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
-import { PresenceService } from './modules/presence/presence.service';
 import { RealtimeModule } from './modules/realtime/realtime.module';
+import { PresenceModule } from './modules/presence/presence.module';
+import { PresenceSubscriptionsModule } from './modules/presenceSubsciptions/presenceSubscriptions.module';
+import { SessionsModule } from './modules/sessions/sessions.module';
 
 @Module({
   imports: [
@@ -17,8 +19,11 @@ import { RealtimeModule } from './modules/realtime/realtime.module';
     UsersModule,
     ContactsModule,
     RealtimeModule,
+    PresenceModule,
+    PresenceSubscriptionsModule,
+    SessionsModule,
   ],
   controllers: [AppController],
-  providers: [AppService, PresenceService],
+  providers: [AppService],
 })
 export class AppModule {}

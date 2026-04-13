@@ -7,3 +7,15 @@ export type AuthedSocket = Socket & {
     };
   };
 };
+
+export type PresenceInitialEvent = {
+  onlineUserIds: string[];
+};
+
+export type PresenceUserOnlineEvent = {
+  userId: string;
+};
+
+export type PresenceUserOfflineEvent = {
+  userId: string;
+};
