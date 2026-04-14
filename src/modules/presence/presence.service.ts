@@ -94,4 +94,8 @@ export class PresenceService {
   getOnlineUserIds(): string[] {
     return [...this.userToSockets.keys()];
   }
+
+  getSocketsForUser(userId: string): Set<string> {
+    return this.userToSockets.get(userId) ?? new Set();
+  }
 }

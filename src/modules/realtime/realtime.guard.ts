@@ -12,7 +12,6 @@ export class RealtimeAuthGuard implements CanActivate {
   constructor(private sessionService: SessionsService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    console.log('RealtimeAuthGuard canActivate called');
     const client = context.switchToWs().getClient<Socket>();
     const sessionId = extractSignedSessionId(client);
 

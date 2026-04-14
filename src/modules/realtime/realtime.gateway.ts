@@ -61,7 +61,6 @@ export class RealtimeGateway
       client.disconnect();
       return;
     }
-
     // Subscribe the user to presence updates for the specified contacts
     this.presenceSubscriptionsService.subscribe(userId, body.userIds);
 
@@ -70,9 +69,12 @@ export class RealtimeGateway
       this.presenceService.isUserOnline(id),
     );
 
-    client.emit(RealtimeEvents.PresenceInitial, {
-      onlineUserIds: onlineUsers,
-    } as PresenceInitialEvent);
+    client.emit('message', {
+      type: RealtimeEvents.PresenceInitial,
+      payload: {
+        onlineUserIds: onlineUsers,
+      } as PresenceInitialEvent,
+    });
   }
 
   async handleConnection(@ConnectedSocket() client: Socket) {
@@ -87,11 +89,22 @@ export class RealtimeGateway
 
     if (result.becameOnline) {
       // Notify all subscribers that the user has come online
-      const watchers = this.presenceSubscriptionsService.getWatchers(userId);
-      for (const watcherId of watchers) {
-        this.server.to(watcherId).emit(RealtimeEvents.PresenceUserOnline, {
-          userId: result.userId,
-        } as PresenceUserOnlineEvent);
+      const watchersUserIds =
+        this.presenceSubscriptionsService.getWatchers(userId);
+
+      const watcherSocketIds = Array.from(watchersUserIds).flatMap(
+        (watcherUserId) => {
+          const sockets = this.presenceService.getSocketsForUser(watcherUserId);
+          return Array.from(sockets);
+        },
+      );
+      for (const watcherSocketId of watcherSocketIds) {
+        this.server.to(watcherSocketId).emit('message', {
+          type: RealtimeEvents.PresenceUserOnline,
+          payload: {
+            userId: result.userId,
+          } as PresenceUserOnlineEvent,
+        });
       }
     }
   }
@@ -104,13 +117,24 @@ export class RealtimeGateway
     const result = this.presenceService.handleDisconnect(client);
     if (result.becameOffline && result.userId) {
       // Notify all subscribers that the user has gone offline
-      const watchers = this.presenceSubscriptionsService.getWatchers(
+      const watchersUserIds = this.presenceSubscriptionsService.getWatchers(
         result.userId,
       );
-      for (const watcherId of watchers) {
-        this.server.to(watcherId).emit(RealtimeEvents.PresenceUserOffline, {
-          userId: result.userId,
-        } as PresenceUserOfflineEvent);
+
+      const watcherSocketIds = Array.from(watchersUserIds).flatMap(
+        (watcherUserId) => {
+          const sockets = this.presenceService.getSocketsForUser(watcherUserId);
+          return Array.from(sockets);
+        },
+      );
+
+      for (const watcherSocketId of watcherSocketIds) {
+        this.server.to(watcherSocketId).emit('message', {
+          type: RealtimeEvents.PresenceUserOffline,
+          payload: {
+            userId: result.userId,
+          } as PresenceUserOfflineEvent,
+        });
       }
     }
   }
