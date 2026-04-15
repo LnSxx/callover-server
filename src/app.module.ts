@@ -10,6 +10,7 @@ import { RealtimeModule } from './modules/realtime/realtime.module';
 import { PresenceModule } from './modules/presence/presence.module';
 import { PresenceSubscriptionsModule } from './modules/presenceSubsciptions/presenceSubscriptions.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
+import { CallsModule } from './modules/calls/calls.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
     PresenceModule,
     PresenceSubscriptionsModule,
     SessionsModule,
+    CallsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

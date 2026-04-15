@@ -1,4 +1,5 @@
 import { Socket } from 'socket.io';
+import { RealtimeEvents } from './realtime.events';
 
 export type AuthedSocket = Socket & {
   data: {
@@ -6,16 +7,4 @@ export type AuthedSocket = Socket & {
       id: string;
     };
   };
-};
-
-export type PresenceInitialEvent = {
-  onlineUserIds: string[];
-};
-
-export type PresenceUserOnlineEvent = {
-  userId: string;
-};
-
-export type PresenceUserOfflineEvent = {
-  userId: string;
 };

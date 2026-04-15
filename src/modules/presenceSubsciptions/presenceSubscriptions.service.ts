@@ -11,7 +11,7 @@ export class PresenceSubscriptionsService {
     for (const watchedId of watchedIds) {
       // Check if watched user is already being watched by the subscriber
       if (this.watchedByUser.get(subscriberId)?.has(watchedId)) {
-        return; // Already subscribed, no action needed
+        continue; // Already subscribed, no action needed
       }
 
       // Check if watched user is not being watched by any subscriber
@@ -34,9 +34,16 @@ export class PresenceSubscriptionsService {
 
   unsubscribe(subscriberId: string): void {
     const watchedIds = this.watchedByUser.get(subscriberId);
+
     if (watchedIds) {
       for (const watchedId of watchedIds) {
-        this.watchersByUser.get(watchedId)?.delete(subscriberId);
+        const watchers = this.watchersByUser.get(watchedId);
+        if (watchers) {
+          watchers.delete(subscriberId);
+          if (watchers.size === 0) {
+            this.watchersByUser.delete(watchedId);
+          }
+        }
       }
     }
     this.watchedByUser.delete(subscriberId);
