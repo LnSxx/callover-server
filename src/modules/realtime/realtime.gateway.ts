@@ -18,21 +18,21 @@ import { SessionsService } from '../sessions/sessions.service';
 import { PresenceSubscriptionsService } from '../presenceSubsciptions/presenceSubscriptions.service';
 import { PresenceSubscribeDto } from './dto/presence.subscribe.dto';
 import {
-  CallAnswerEvent,
-  CallCancelEvent,
-  CallDeclineEvent,
+  CallAnswerIncomingEvent,
+  CallCancelIncomingEvent,
   CallIceCandidateEvent,
+  CallOfferIncomingEvent,
   PresenceInitialEvent,
   PresenceUserOfflineEvent,
   PresenceUserOnlineEvent,
   RealtimeEvents,
 } from './realtime.events';
 import type { AuthedSocket } from './realtime.types';
-import { CallOfferMessageDto } from './dto/callOffer.message.dto';
 import { CallsService } from '../calls/calls.service';
-import { CallAnswerMessageDto } from './dto/callAnswer.message.dto';
+import { CallAnswerOutgoingMessageDto } from './dto/callAnswer.message.dto';
 import { CallIceCandidateMessageDto } from './dto/callIceCandidate.message.dto';
 import { CallCancelMessageDto } from './dto/callCancel.message.dto';
+import { CallOfferOutgoingMessageDto } from './dto/callOffer.message.dto';
 
 @WebSocketGateway({
   namespace: 'events',
@@ -156,7 +156,7 @@ export class RealtimeGateway
   )
   @SubscribeMessage(RealtimeEvents.CallOffer)
   handleCallOfferMessage(
-    @MessageBody() body: CallOfferMessageDto,
+    @MessageBody() body: CallOfferOutgoingMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
     const fromUserId = client.data.user?.id;
@@ -194,8 +194,9 @@ export class RealtimeGateway
         payload: {
           fromUserId,
           sdp: body.sdp,
+          type: body.type,
         },
-      });
+      } as CallOfferIncomingEvent);
     }
   }
 
@@ -206,7 +207,7 @@ export class RealtimeGateway
   )
   @SubscribeMessage(RealtimeEvents.CallAnswer)
   handleCallAnswerMessage(
-    @MessageBody() body: CallAnswerMessageDto,
+    @MessageBody() body: CallAnswerOutgoingMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
     const fromUserId = client.data.user?.id;
@@ -229,12 +230,13 @@ export class RealtimeGateway
         return;
       }
 
+      // Getting caller's specific room and sending the call decline message to the caller
       client.to(call.roomId).emit('message', {
-        type: RealtimeEvents.CallDecline,
+        type: RealtimeEvents.CallAnswer,
         payload: {
-          toUserId: body.toUserId,
+          fromUserId: fromUserId,
         },
-      } as CallDeclineEvent);
+      } as CallAnswerIncomingEvent);
 
       // Ending the call and cleaning up the call room
       this.callsService.endCall(fromUserId);
@@ -254,10 +256,10 @@ export class RealtimeGateway
     client.to(call.roomId).emit('message', {
       type: RealtimeEvents.CallAnswer,
       payload: {
-        toUserId: body.toUserId,
+        fromUserId: fromUserId,
         sdp: body.sdp,
       },
-    } as CallAnswerEvent);
+    } as CallAnswerIncomingEvent);
 
     // Joining user to the call room
     client.join(call.roomId);
@@ -295,9 +297,9 @@ export class RealtimeGateway
       this.server.to(socketId).emit('message', {
         type: RealtimeEvents.CallCancel,
         payload: {
-          toUserId: body.toUserId,
+          fromUserId: fromUserId,
         },
-      } as CallCancelEvent);
+      } as CallCancelIncomingEvent);
     }
 
     // Ending the call and cleaning up the call room

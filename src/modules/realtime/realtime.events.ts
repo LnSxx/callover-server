@@ -1,3 +1,5 @@
+import { CallType } from '../calls/calls.types';
+
 export enum RealtimeEvents {
   // PRESENCE EVENTS
   // This events provides real-time updates about the online/offline status of users in the system.
@@ -27,25 +29,25 @@ export enum RealtimeEvents {
   // These events are used for managing real-time communication (calls) between users.
   // They include events for initiating calls, answering calls, canceling calls, declining calls, and exchanging ICE candidates for WebRTC connections.
 
-  // Client -> Server
+  // Bidirectional (Client <-> Server)
   // Client sends this message to initiate a call to another user
-  // including the target user's ID and the Session Description Protocol (SDP) offer
+  // including the target user's ID and the Session Description Protocol (SDP) offer and call type (audio/video)
+  // Server sends this message to the callee client when they receive a call offer from another user
+  // including the caller's user ID and the SDP offer and call type (audio/video)
   CallOffer = 'call.offer',
 
-  // Client -> Server
-  // Client sends this message to answer an incoming call, including the target user's ID and the SDP answer (or null if declining)
+  // Bidirectional (Client <-> Server)
+  // Client sends this message to answer an incoming call offer, including the target user's ID and the SDP answer (or null if rejecting the call)
+  // Server sends this message to the caller client when the callee answers the call offer, including the callee's user ID and the SDP answer (or null if rejecting the call)
   CallAnswer = 'call.answer',
 
-  // Client -> Server
-  // Client sends this message to cancel an outgoing call before it's answered
+  // Bidirectional (Client <-> Server)
+  // Client sends this message to cancel an outgoing call offer before it's answered by the callee
+  // Server sends this message to the callee client when the caller cancels the call offer
   CallCancel = 'call.cancel',
 
-  // Server -> Client
-  // Server sends this message to the caller when the callee declines the call
-  CallDecline = 'call.decline',
-
-  // Client -> Server
-  // Client sends this message to exchange ICE candidates with the other user during the WebRTC connection setup
+  // Bidirectional (Client <-> Server)
+  // Caller and callee clients exchange this message to share ICE candidates for establishing the WebRTC peer-to-peer connection
   CallIceCandidate = 'call.ice-candidate',
 }
 
@@ -76,50 +78,101 @@ export type PresenceUserOfflineEventPayload = {
   userId: string;
 };
 
-export type CallOfferEvent = {
+// CALL EVENTS
+
+// Outgoing for client call offer
+// Caller client -> Server
+// Caller sends this message to the server to initiate a call
+// including the target user's ID and the Session Description Protocol (SDP) offer and call type (audio/video)
+export type CallOfferOutgoingEvent = {
   type: RealtimeEvents.CallOffer;
-  payload: CallOfferEventPayload;
+  payload: CallOfferOutgoingEventPayload;
 };
 
-export type CallAnswerEvent = {
+export type CallOfferOutgoingEventPayload = {
+  toUserId: string;
+  sdp: string;
+  type: CallType;
+};
+
+// Incoming for client call offer
+// Server -> Callee client
+// Server sends this message to the callee client when they receive a call offer from another user
+// including the caller's user ID and the SDP offer and call type (audio/video)
+export type CallOfferIncomingEvent = {
+  type: RealtimeEvents.CallOffer;
+  payload: CallOfferIncomingEventPayload;
+};
+
+export type CallOfferIncomingEventPayload = {
+  fromUserId: string;
+  sdp: string;
+  type: CallType;
+};
+
+// Outgoing for client call answer
+// Callee client -> Server
+// Callee sends this message to the server to answer an incoming call offer,
+// including the target user's ID and the SDP answer (or null if rejecting the call)
+export type CallAnswerOutgoingEvent = {
   type: RealtimeEvents.CallAnswer;
-  payload: CallAnswerEventPayload;
+  payload: CallAnswerOutgoingEventPayload;
 };
 
-export type CallCancelEvent = {
+export type CallAnswerOutgoingEventPayload = {
+  toUserId: string;
+  sdp?: string | null;
+};
+
+// Incoming for client call answer
+// Server -> Caller client
+// Server sends this message to the caller client when the callee answers the call offer,
+// including the callee's user ID and the SDP answer (or null if rejecting the call)
+export type CallAnswerIncomingEvent = {
+  type: RealtimeEvents.CallAnswer;
+  payload: CallAnswerIncomingEventPayload;
+};
+
+export type CallAnswerIncomingEventPayload = {
+  fromUserId: string;
+  sdp?: string | null;
+};
+
+// Outgoing for client call cancel
+// Caller client -> Server
+// Caller sends this message to the server to cancel an outgoing call offer before it's answered by the callee
+export type CallCancelOutgoingEvent = {
   type: RealtimeEvents.CallCancel;
-  payload: CallCancelEventPayload;
+  payload: CallCancelOutgoingEventPayload;
 };
 
-export type CallDeclineEvent = {
-  type: RealtimeEvents.CallDecline;
-  payload: CallDeclineEventPayload;
+// Payload includes the target user's ID
+export type CallCancelOutgoingEventPayload = {
+  toUserId: string;
 };
 
+// Incoming for client call cancel
+// Server -> Callee client
+// Server sends this message to the callee client when the caller cancels the call offer
+export type CallCancelIncomingEvent = {
+  type: RealtimeEvents.CallCancel;
+  payload: CallCancelIncomingEventPayload;
+};
+
+// Payload includes the caller's user ID
+export type CallCancelIncomingEventPayload = {
+  fromUserId: string;
+};
+
+// Bidirectional (Client <-> Server)
+// Caller and callee clients exchange this message
+// to share ICE candidates for establishing the WebRTC peer-to-peer connection
 export type CallIceCandidateEvent = {
   type: RealtimeEvents.CallIceCandidate;
   payload: CallIceCandidateEventPayload;
 };
 
-export type CallOfferEventPayload = {
-  toUserId: string;
-  sdp: string;
-};
-
-export type CallAnswerEventPayload = {
-  toUserId: string;
-  // If Session Description Protocol (SDP) is null, it means the call was rejected by the callee
-  sdp?: string | null;
-};
-
-export type CallCancelEventPayload = {
-  toUserId: string;
-};
-
-export type CallDeclineEventPayload = {
-  toUserId: string;
-};
-
+// Payload includes the target user's ID and the ICE candidate strings
 export type CallIceCandidateEventPayload = {
   toUserId: string;
   candidate: string;
