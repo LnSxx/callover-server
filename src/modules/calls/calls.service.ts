@@ -1,8 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { randomBytes } from 'crypto';
 
+// Type definition for an active call between two users
+// Call can be not active (ringing) and active (accepted)
 type Call = {
-  target: string;
+  // User ID of call holder
+  userId: string;
+
+  // Socket ID of call holder
+  // When user initiates a call, the socketId sets immediately
+  // but when user receives a call, the socketId is null until
+  // user accepts the call and establishes a connection to the call room
+  socketId: string | null;
+
+  // Id of the peer user in the call
+  peerUserId: string;
+
+  // Unique ID of the call room
   roomId: string;
 };
 
@@ -17,9 +30,18 @@ export class CallsService {
    * or null if the call initiation failed (e.g., if either user is already in an active call).
    * @param fromUserId - The ID of the user initiating the call
    * @param toUserId - The ID of the user being called
+   * @param socketId - The socket ID of the user initiating the call
    * @returns The call room ID if successful, or null if the call initiation failed
    */
-  initiateCall(fromUserId: string, toUserId: string): string | null {
+  initiateCall({
+    fromUserId,
+    toUserId,
+    socketId,
+  }: {
+    fromUserId: string;
+    toUserId: string;
+    socketId: string;
+  }): string | null {
     // Check if either the caller or the callee is already in an active call
     if (this.activeCalls.has(toUserId)) {
       return null;
@@ -28,8 +50,18 @@ export class CallsService {
     const callId = `call_${fromUserId}_${toUserId}_${Date.now()}`;
 
     // Store the active call data for both users
-    this.activeCalls.set(fromUserId, { target: toUserId, roomId: callId });
-    this.activeCalls.set(toUserId, { target: fromUserId, roomId: callId });
+    this.activeCalls.set(fromUserId, {
+      userId: toUserId,
+      socketId,
+      peerUserId: toUserId,
+      roomId: callId,
+    });
+    this.activeCalls.set(toUserId, {
+      userId: fromUserId,
+      socketId: null,
+      peerUserId: fromUserId,
+      roomId: callId,
+    });
 
     return callId;
   }
