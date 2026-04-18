@@ -89,32 +89,50 @@ export class RealtimeGateway
   }
 
   async handleDisconnect(@ConnectedSocket() client: Socket) {
+    // Get user ID from socket
     const userId = client.data.user?.id;
-    if (userId) {
-      this.presenceSubscriptionsService.unsubscribe(userId);
+
+    // Check if we know client
+    if (!userId) {
+      // We do not know who disconnected from socket. Do nothing
+      return;
     }
+
+    // Register disconnection of client and see if user became offline (has no active sockets)
     const result = this.presenceService.handleDisconnect(client);
+
     if (result.becameOffline && result.userId) {
       // Notify all subscribers that the user has gone offline
+
+      // Get users that followed disconnected client
       const watchersUserIds = this.presenceSubscriptionsService.getWatchers(
         result.userId,
       );
 
-      const watcherSocketIds = Array.from(watchersUserIds).flatMap(
-        (watcherUserId) => {
-          const sockets = this.presenceService.getSocketsForUser(watcherUserId);
-          return Array.from(sockets);
-        },
-      );
-
-      for (const watcherSocketId of watcherSocketIds) {
-        this.server.to(watcherSocketId).emit('message', {
-          type: RealtimeEvents.PresenceUserOffline,
-          payload: {
-            userId: result.userId,
+      if (watchersUserIds.size != 0) {
+        // User has watchers, notify them about disconnection
+        const watcherSocketIds = Array.from(watchersUserIds).flatMap(
+          (watcherUserId) => {
+            const sockets =
+              this.presenceService.getSocketsForUser(watcherUserId);
+            return Array.from(sockets);
           },
-        } as PresenceUserOfflineEvent);
+        );
+
+        // Send the offline status to all watchers
+        for (const watcherSocketId of watcherSocketIds) {
+          this.server.to(watcherSocketId).emit('message', {
+            type: RealtimeEvents.PresenceUserOffline,
+            payload: {
+              userId: result.userId,
+            },
+          } as PresenceUserOfflineEvent);
+        }
       }
+
+      // Unregister all presence subscriptions of the user as he is now
+      // offline and can not receive any presence updates
+      this.presenceSubscriptionsService.unsubscribe(userId);
     }
   }
 

@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
+/**
+ * Service holds in memory information about user's subscription about other users presence
+ */
 @Injectable()
 export class PresenceSubscriptionsService {
   // Watched userId -> set of subscribers userIds
