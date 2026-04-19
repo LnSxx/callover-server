@@ -54,7 +54,7 @@ export class RealtimeGateway
   ) {}
 
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   async handleConnection(@ConnectedSocket() client: Socket) {
     const userId = await this.extractUserId(client);
@@ -64,7 +64,7 @@ export class RealtimeGateway
       return;
     }
 
-    const result = await this.presenceService.handleConnection(userId, client);
+    const result = this.presenceService.handleConnection(userId, client);
 
     if (result.becameOnline) {
       // Notify all subscribers that the user has come online
@@ -88,9 +88,10 @@ export class RealtimeGateway
     }
   }
 
-  async handleDisconnect(@ConnectedSocket() client: Socket) {
+  handleDisconnect(@ConnectedSocket() client: Socket | AuthedSocket) {
     // Get user ID from socket
-    const userId = client.data.user?.id;
+    const clientData = client.data as { user?: { id: string } } | undefined;
+    const userId = clientData?.user?.id;
 
     // Check if we know client
     if (!userId) {
@@ -146,7 +147,9 @@ export class RealtimeGateway
     @MessageBody() body: PresenceSubscribeDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
-    const userId = client.data.user?.id;
+    const clientData = client.data as { user?: { id: string } } | undefined;
+    const userId = clientData?.user?.id;
+
     if (!userId) {
       client.disconnect();
       return;
@@ -173,18 +176,25 @@ export class RealtimeGateway
     }),
   )
   @SubscribeMessage(RealtimeEvents.CallOffer)
-  handleCallOfferMessage(
+  async handleCallOfferMessage(
     @MessageBody() body: CallOfferOutgoingMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
-    const fromUserId = client.data.user?.id;
-    if (!fromUserId) {
+    const clientData = client.data as { user?: { id: string } } | undefined;
+    const userId = clientData?.user?.id;
+
+    if (!userId) {
       client.disconnect();
       return;
     }
 
     // Trying to initiate the call and create a call room
-    const roomId = this.callsService.initiateCall(fromUserId, body.toUserId);
+    const roomId = this.callsService.initiateCall({
+      fromUserId: userId,
+      toUserId: body.toUserId,
+      socketId: client.id,
+    });
+
     if (!roomId) {
       // Call initiation failed
       // User is busy or blocked, or some other reason
@@ -203,14 +213,14 @@ export class RealtimeGateway
 
     // Can send the offer
     // Joining user to the call room
-    client.join(roomId);
+    await client.join(roomId);
 
     // Sending the call offer to the target user
     for (const socketId of targetSockets) {
       this.server.to(socketId).emit('message', {
         type: RealtimeEvents.CallOffer,
         payload: {
-          fromUserId,
+          fromUserId: userId,
           sdp: body.sdp,
           type: body.type,
         },
@@ -224,12 +234,14 @@ export class RealtimeGateway
     }),
   )
   @SubscribeMessage(RealtimeEvents.CallAnswer)
-  handleCallAnswerMessage(
+  async handleCallAnswerMessage(
     @MessageBody() body: CallAnswerOutgoingMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
-    const fromUserId = client.data.user?.id;
-    if (!fromUserId) {
+    const clientData = client.data as { user?: { id: string } } | undefined;
+    const userId = clientData?.user?.id;
+
+    if (!userId) {
       client.disconnect();
       return;
     }
@@ -241,7 +253,8 @@ export class RealtimeGateway
       // Sending the call decline message to the caller
 
       // Getting the caller's specific room
-      const call = this.callsService.getCall(fromUserId);
+      const call = this.callsService.getCall(userId);
+
       if (!call) {
         // Weird state
         // No active call found for the user, can't send the decline message
@@ -252,18 +265,18 @@ export class RealtimeGateway
       client.to(call.roomId).emit('message', {
         type: RealtimeEvents.CallAnswer,
         payload: {
-          fromUserId: fromUserId,
+          fromUserId: userId,
         },
       } as CallAnswerIncomingEvent);
 
       // Ending the call and cleaning up the call room
-      this.callsService.endCall(fromUserId);
+      this.callsService.endCall(userId);
       return;
     }
 
     // User accepted the call
     // Getting the caller's specific room
-    const call = this.callsService.getCall(fromUserId);
+    const call = this.callsService.getCall(userId);
     if (!call) {
       // Weird state
       // No active call found for the user, can't send the answer message
@@ -274,13 +287,13 @@ export class RealtimeGateway
     client.to(call.roomId).emit('message', {
       type: RealtimeEvents.CallAnswer,
       payload: {
-        fromUserId: fromUserId,
+        fromUserId: userId,
         sdp: body.sdp,
       },
     } as CallAnswerIncomingEvent);
 
     // Joining user to the call room
-    client.join(call.roomId);
+    await client.join(call.roomId);
   }
 
   @UsePipes(
@@ -293,14 +306,16 @@ export class RealtimeGateway
     @MessageBody() body: CallCancelMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
-    const fromUserId = client.data.user?.id;
-    if (!fromUserId) {
+    const clientData = client.data as { user?: { id: string } } | undefined;
+    const userId = clientData?.user?.id;
+
+    if (!userId) {
       client.disconnect();
       return;
     }
 
     // Getting the caller's specific room
-    const call = this.callsService.getCall(fromUserId);
+    const call = this.callsService.getCall(userId);
     if (!call) {
       // Weird state
       // No active call found for the user, can't send the cancel message
@@ -310,18 +325,18 @@ export class RealtimeGateway
     // Sending the call cancel message to the caller
 
     // Getting user's sockets to send the cancel message to all of user's active connections
-    const userSockets = this.presenceService.getSocketsForUser(fromUserId);
+    const userSockets = this.presenceService.getSocketsForUser(userId);
     for (const socketId of userSockets) {
       this.server.to(socketId).emit('message', {
         type: RealtimeEvents.CallCancel,
         payload: {
-          fromUserId: fromUserId,
+          fromUserId: userId,
         },
       } as CallCancelIncomingEvent);
     }
 
     // Ending the call and cleaning up the call room
-    this.callsService.endCall(fromUserId);
+    this.callsService.endCall(userId);
   }
 
   @UsePipes(
@@ -334,7 +349,9 @@ export class RealtimeGateway
     @MessageBody() body: CallIceCandidateMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
-    const fromUserId = client.data.user?.id;
+    const clientData = client.data as { user?: { id: string } };
+    const fromUserId = clientData.user?.id;
+
     if (!fromUserId) {
       client.disconnect();
       return;

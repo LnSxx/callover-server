@@ -12,13 +12,13 @@ export class PresenceService {
   private readonly socketToUser: Map<string, string> = new Map();
 
   /// Method to handle new socket connections and update the presence state
-  async handleConnection(
+  handleConnection(
     userId: string,
     client: Socket,
-  ): Promise<{
+  ): {
     userId: string | null;
     becameOnline: boolean;
-  }> {
+  } {
     // In case no user is associated with the socket connection
     if (!userId)
       return {

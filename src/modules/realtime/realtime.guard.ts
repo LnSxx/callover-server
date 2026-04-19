@@ -26,7 +26,9 @@ export class RealtimeAuthGuard implements CanActivate {
         throw new WsException('Invalid session');
       }
       if (session.expirationTime < new Date()) return false;
-      client.data.user = { id: session.userId };
+      (client.data as { user: { id: string } })['user'] = {
+        id: session.userId,
+      };
       return true;
     } catch (error) {
       console.error('RealtimeAuthGuard error:', error);

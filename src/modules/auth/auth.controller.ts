@@ -49,6 +49,7 @@ export class AuthController {
         },
       };
     } catch (err) {
+      console.error('Error during sign-in:', err);
       throw new InternalServerErrorException();
     }
   }
@@ -84,7 +85,10 @@ export class AuthController {
 
   @Delete('logout')
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const sessionId = req.signedCookies['sessionId'];
+    const sessionId = req.signedCookies['sessionId'] as string | undefined;
+    if (!sessionId) {
+      return;
+    }
     await this.authService.logout(sessionId);
     res.cookie('sessionId', '', {
       httpOnly: true,

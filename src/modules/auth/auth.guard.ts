@@ -26,7 +26,7 @@ export class AuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<Request>();
-    const sessionId = request.signedCookies['sessionId'];
+    const sessionId = request.signedCookies['sessionId'] as string | undefined;
     if (!sessionId) {
       throw new UnauthorizedException();
     }

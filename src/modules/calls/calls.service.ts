@@ -78,7 +78,7 @@ export class CallsService {
     if (callee) {
       // Has active call and can see who is the calling partner
       // Deleting the active call mapping for the calling partner
-      this.activeCalls.delete(callee.target);
+      this.activeCalls.delete(callee.peerUserId);
     }
     // Deleting the active call mapping for the user
     this.activeCalls.delete(userId);
