@@ -1,3 +1,3 @@
 export class OnlineContactMessage {
-  userId: string;
+  userId!: string;
 }

@@ -2,6 +2,7 @@
 import eslint from '@eslint/js';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
+import { table } from 'node:console';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -31,7 +32,13 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-argument': 'warn',
       'prettier/prettier': [
         'error',
-        { endOfLine: 'auto', bracketSpacing: 'off' },
+        {
+          endOfLine: 'auto',
+          bracketSpacing: true,
+          singleQuote: true,
+          trailingComma: 'all',
+          tabWidth: 2,
+        },
       ],
     },
   },

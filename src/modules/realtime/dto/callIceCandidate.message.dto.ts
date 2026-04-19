@@ -1,10 +1,10 @@
-import { IsArray, IsString } from 'class-validator';
+import { IsString } from 'class-validator';
 import { CallIceCandidateEventPayload } from '../realtime.events';
 
 export class CallIceCandidateMessageDto implements CallIceCandidateEventPayload {
   @IsString()
-  toUserId: string;
+  toUserId!: string;
 
   @IsString()
-  candidate: string;
+  candidate!: string;
 }

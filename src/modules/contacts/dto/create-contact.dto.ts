@@ -1,16 +1,16 @@
-import { Prop } from "@nestjs/mongoose";
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Prop } from '@nestjs/mongoose';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateContactDto {
-    @ApiProperty({ example: '123' })
-    @Prop({ required: true })
-    contactUserId!: string;
+  @ApiProperty({ example: '123' })
+  @Prop({ required: true })
+  contactUserId!: string;
 
-    @ApiPropertyOptional({ example: 'Ivan Ivanov' })
-    @Prop()
-    alias?: string;
+  @ApiPropertyOptional({ example: 'Ivan Ivanov' })
+  @Prop()
+  alias?: string;
 
-    @ApiPropertyOptional({ example: 'BF' })
-    @Prop()
-    note?: string;
+  @ApiPropertyOptional({ example: 'BF' })
+  @Prop()
+  note?: string;
 }

@@ -7,15 +7,9 @@ import { Model } from 'mongoose';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<User>) { }
+  constructor(@InjectModel(User.name) private userModel: Model<User>) {}
 
-  async create({
-    username,
-    password,
-  }: {
-    username: string;
-    password: string;
-  }) {
+  async create({ username, password }: { username: string; password: string }) {
     const passwordHash = await bcrypt.hash(password, 10);
     const createdUser = new this.userModel({
       username: username,
@@ -29,7 +23,7 @@ export class UsersService {
     return result;
   }
 
-  async findBy(username: string | undefined, email?: string | undefined) {
+  async findBy(username: string | undefined, email?: string) {
     if (!username && !email) {
       return null;
     }

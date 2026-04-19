@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Socket } from 'socket.io';
 import { SessionsService } from '../sessions/sessions.service';
-import { extractSignedSessionId } from '../realtime/realtime.utils';
 
 @Injectable()
 export class PresenceService {

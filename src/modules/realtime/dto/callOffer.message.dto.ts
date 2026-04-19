@@ -4,11 +4,11 @@ import type { CallType } from 'src/modules/calls/calls.types';
 
 export class CallOfferOutgoingMessageDto implements CallOfferOutgoingEventPayload {
   @IsString()
-  toUserId: string;
+  toUserId!: string;
 
   @IsString()
-  sdp: string;
+  sdp!: string;
 
   @IsIn(['audio', 'video'])
-  type: CallType;
+  type!: CallType;
 }

@@ -1,3 +1,3 @@
 export class OfflineContactMessage {
-  userId: string;
+  userId!: string;
 }

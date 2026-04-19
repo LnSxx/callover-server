@@ -1,9 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { WsException } from '@nestjs/websockets';
-import * as cookie from 'cookie';
 import { SessionsService } from '../sessions/sessions.service';
-import { AuthedSocket } from './realtime.types';
-import cookieParser from 'cookie-parser';
 import { Socket } from 'socket.io';
 import { extractSignedSessionId } from './realtime.utils';
 

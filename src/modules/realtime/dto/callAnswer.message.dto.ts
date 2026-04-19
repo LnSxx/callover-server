@@ -3,7 +3,7 @@ import { CallAnswerOutgoingEventPayload } from '../realtime.events';
 
 export class CallAnswerOutgoingMessageDto implements CallAnswerOutgoingEventPayload {
   @IsString()
-  toUserId: string;
+  toUserId!: string;
 
   sdp?: string | null;
 }
