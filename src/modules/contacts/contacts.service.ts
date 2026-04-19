@@ -8,7 +8,7 @@ import { Model } from 'mongoose';
 @Injectable()
 export class ContactsService {
   constructor(
-    @InjectModel(Contact.name) private сontactModel: Model<Contact>,
+    @InjectModel(Contact.name) private contactModel: Model<Contact>,
   ) {}
 
   create({
@@ -18,7 +18,7 @@ export class ContactsService {
     ownerId: string;
     contactData: CreateContactDto;
   }) {
-    const newContact = new this.сontactModel({
+    const newContact = new this.contactModel({
       ownerId: ownerId,
       contactUserId: contactData.contactUserId,
       alias: contactData.alias,
@@ -28,15 +28,15 @@ export class ContactsService {
   }
 
   findAll(ownerId: string) {
-    return this.сontactModel.find({ ownerId: ownerId });
+    return this.contactModel.find({ ownerId: ownerId });
   }
 
   findOne(id: string) {
-    return this.сontactModel.findById(id).exec();
+    return this.contactModel.findById(id).exec();
   }
 
   async update(id: string, updateContactDto: UpdateContactDto) {
-    const updatedContact = await this.сontactModel
+    const updatedContact = await this.contactModel
       .findByIdAndUpdate(id, updateContactDto, {
         new: true,
       })
@@ -45,7 +45,7 @@ export class ContactsService {
     return updatedContact;
   }
 
-  remove(id: string) {
-    this.сontactModel.findByIdAndDelete(id).exec();
+  async remove(id: string) {
+    await this.contactModel.findByIdAndDelete(id).exec();
   }
 }

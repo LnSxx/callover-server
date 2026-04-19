@@ -9,9 +9,9 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update_user.dto';
-import { CurrentUser } from 'src/common/decorators/current_user.decorator';
 import { GetMeResponseDto } from './dto/get_me.response.dto';
 import { UpdateMeResponseDto } from './dto/update_me.response.dto';
+import { CurrentUser } from '../../common/decorators/current_user.decorator';
 
 @Controller('users')
 export class UsersController {

@@ -10,7 +10,7 @@ import {
 import { ContactsService } from './contacts.service';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
-import { CurrentUser } from 'src/common/decorators/current_user.decorator';
+import { CurrentUser } from '../../common/decorators/current_user.decorator';
 
 @Controller('contacts')
 export class ContactsController {

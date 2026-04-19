@@ -11,9 +11,9 @@ import { AuthService } from './auth.service';
 import { SignInDto } from './dto/sign_in.dto';
 import type { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
-import { Public } from 'src/common/decorators/public.decorator';
 import { SignInResponseDto } from './dto/sign_in.response.dto';
 import { RegisterResponseDto } from './dto/register.response.dto';
+import { Public } from '../../common/decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
