@@ -1,8 +1,8 @@
 import { IsIn, IsString } from 'class-validator';
-import { CallOfferOutgoingEventPayload } from '../realtime.events';
+import type { CallOfferEventPayload } from '../realtime.events';
 import type { CallType } from '../../calls/calls.types';
 
-export class CallOfferOutgoingMessageDto implements CallOfferOutgoingEventPayload {
+export class CallOfferMessageDto implements CallOfferEventPayload {
   @IsString()
   toUserId!: string;
 

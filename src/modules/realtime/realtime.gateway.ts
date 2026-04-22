@@ -18,10 +18,11 @@ import { SessionsService } from '../sessions/sessions.service';
 import { PresenceSubscriptionsService } from '../presenceSubsciptions/presenceSubscriptions.service';
 import { PresenceSubscribeDto } from './dto/presence.subscribe.dto';
 import {
-  CallAnswerIncomingEvent,
-  CallCancelIncomingEvent,
-  CallIceCandidateEvent,
-  CallOfferIncomingEvent,
+  CallAnswerRelayEvent,
+  CallCancelRelayEvent,
+  CallEndRelayEvent,
+  CallIceCandidateRelayEvent,
+  CallOfferRelayEvent,
   PresenceInitialEvent,
   PresenceUserOfflineEvent,
   PresenceUserOnlineEvent,
@@ -29,10 +30,10 @@ import {
 } from './realtime.events';
 import type { AuthedSocket } from './realtime.types';
 import { CallsService } from '../calls/calls.service';
-import { CallAnswerOutgoingMessageDto } from './dto/callAnswer.message.dto';
 import { CallIceCandidateMessageDto } from './dto/callIceCandidate.message.dto';
 import { CallCancelMessageDto } from './dto/callCancel.message.dto';
-import { CallOfferOutgoingMessageDto } from './dto/callOffer.message.dto';
+import { CallOfferMessageDto } from './dto/callOffer.message.dto';
+import { CallAnswerMessageDto } from './dto/callAnswer.message.dto';
 
 @WebSocketGateway({
   namespace: 'events',
@@ -97,6 +98,27 @@ export class RealtimeGateway
     if (!userId) {
       // We do not know who disconnected from socket. Do nothing
       return;
+    }
+
+    const call = this.callsService.getCall(userId);
+    const socketIdOfCall = call != null ? call.socketId : null;
+    if (call && client.id === socketIdOfCall) {
+      // Has active call on this socket
+      // End call and notify other hand
+
+      const calleeSocketId = this.callsService.getCall(
+        call.peerUserId,
+      )?.socketId;
+
+      if (calleeSocketId) {
+        this.server.to(calleeSocketId).emit('message', {
+          type: RealtimeEvents.CallEnd,
+          payload: {
+            fromUserId: userId,
+          },
+        } as CallEndRelayEvent);
+      }
+      this.callsService.endCall(userId);
     }
 
     // Register disconnection of client and see if user became offline (has no active sockets)
@@ -177,7 +199,7 @@ export class RealtimeGateway
   )
   @SubscribeMessage(RealtimeEvents.CallOffer)
   async handleCallOfferMessage(
-    @MessageBody() body: CallOfferOutgoingMessageDto,
+    @MessageBody() body: CallOfferMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
     const clientData = client.data as { user?: { id: string } } | undefined;
@@ -224,7 +246,7 @@ export class RealtimeGateway
           sdp: body.sdp,
           type: body.type,
         },
-      } as CallOfferIncomingEvent);
+      } as CallOfferRelayEvent);
     }
   }
 
@@ -235,7 +257,7 @@ export class RealtimeGateway
   )
   @SubscribeMessage(RealtimeEvents.CallAnswer)
   async handleCallAnswerMessage(
-    @MessageBody() body: CallAnswerOutgoingMessageDto,
+    @MessageBody() body: CallAnswerMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
     const clientData = client.data as { user?: { id: string } } | undefined;
@@ -267,7 +289,7 @@ export class RealtimeGateway
         payload: {
           fromUserId: userId,
         },
-      } as CallAnswerIncomingEvent);
+      } as CallAnswerRelayEvent);
 
       // Ending the call and cleaning up the call room
       this.callsService.endCall(userId);
@@ -290,7 +312,7 @@ export class RealtimeGateway
         fromUserId: userId,
         sdp: body.sdp,
       },
-    } as CallAnswerIncomingEvent);
+    } as CallAnswerRelayEvent);
 
     // Joining user to the call room
     await client.join(call.roomId);
@@ -322,21 +344,56 @@ export class RealtimeGateway
       return;
     }
 
-    // Sending the call cancel message to the caller
-
-    // Getting user's sockets to send the cancel message to all of user's active connections
-    const userSockets = this.presenceService.getSocketsForUser(userId);
-    for (const socketId of userSockets) {
+    // Sending the call cancel message to the callee
+    const calleeSockets = this.presenceService.getSocketsForUser(
+      call.peerUserId,
+    );
+    for (const socketId of calleeSockets) {
       this.server.to(socketId).emit('message', {
         type: RealtimeEvents.CallCancel,
         payload: {
           fromUserId: userId,
         },
-      } as CallCancelIncomingEvent);
+      } as CallCancelRelayEvent);
     }
 
     // Ending the call and cleaning up the call room
     this.callsService.endCall(userId);
+  }
+
+  @UsePipes(
+    new ValidationPipe({
+      exceptionFactory: (errors) => new WsException(errors),
+    }),
+  )
+  @SubscribeMessage(RealtimeEvents.CallEnd)
+  handleCallEndMessage(
+    @MessageBody() body: CallCancelMessageDto,
+    @ConnectedSocket() client: AuthedSocket,
+  ) {
+    const clientData = client.data as { user?: { id: string } };
+    const fromUserId = clientData.user?.id;
+
+    if (!fromUserId) {
+      client.disconnect();
+      return;
+    }
+
+    // Getting the call room for the user
+    const call = this.callsService.getCall(fromUserId);
+    if (!call) {
+      // No active call found for the user, can't cancel non-existing call
+      return;
+    }
+
+    client.to(call.roomId).emit('message', {
+      type: RealtimeEvents.CallEnd,
+      payload: {
+        fromUserId: fromUserId,
+      },
+    } as CallEndRelayEvent);
+
+    this.callsService.endCall(fromUserId);
   }
 
   @UsePipes(
@@ -368,10 +425,10 @@ export class RealtimeGateway
     this.server.to(call.roomId).emit('message', {
       type: RealtimeEvents.CallIceCandidate,
       payload: {
-        toUserId: body.toUserId,
+        fromUserId: fromUserId,
         candidate: body.candidate,
       },
-    } as CallIceCandidateEvent);
+    } as CallIceCandidateRelayEvent);
   }
 
   private async extractUserId(client: Socket): Promise<string | null> {

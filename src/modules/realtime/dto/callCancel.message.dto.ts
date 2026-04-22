@@ -1,7 +1,7 @@
 import { IsString } from 'class-validator';
-import { CallCancelIncomingEventPayload } from '../realtime.events';
+import { CallCancelEventPayload } from '../realtime.events';
 
-export class CallCancelMessageDto implements CallCancelIncomingEventPayload {
+export class CallCancelMessageDto implements CallCancelEventPayload {
   @IsString()
-  fromUserId!: string;
+  toUserId!: string;
 }
