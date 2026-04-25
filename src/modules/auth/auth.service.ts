@@ -1,7 +1,8 @@
 import bcrypt from 'bcrypt';
 import {
-  BadRequestException,
+  ConflictException,
   Injectable,
+  InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { SessionsService } from '../sessions/sessions.service';
@@ -30,8 +31,8 @@ export class AuthService {
     id: string;
     username: string;
     email: string | undefined;
-    sessionId: string | undefined;
-    sessionExpirationDate: Date | undefined;
+    sessionId: string;
+    sessionExpirationDate: Date;
   }> {
     const user = await this.usersService.findBy(username, email);
 
@@ -57,6 +58,10 @@ export class AuthService {
       userAgent: userAgent,
     });
 
+    if (!newSession) {
+      throw new InternalServerErrorException('Failed to create session');
+    }
+
     return {
       id: user.id,
       username: user.username,
@@ -80,17 +85,26 @@ export class AuthService {
     id: string;
     username: string;
     email: string | undefined;
-    sessionId: string | undefined;
-    sessionExpirationDate: Date | undefined;
+    sessionId: string;
+    sessionExpirationDate: Date;
   }> {
-    const existingUserWithUsername = await this.usersService.findBy(username);
+    const usernameNormalized = username.trim().toLowerCase();
+
+    const existingUserWithUsername =
+      await this.usersService.findBy(usernameNormalized);
 
     if (existingUserWithUsername) {
-      // User with given username exists in database
-      throw new BadRequestException('Username is taken');
+      throw new ConflictException('Username is already taken');
     }
 
-    const newUser = await this.usersService.create({ username, password });
+    const newUser = await this.usersService.create(
+      usernameNormalized,
+      password,
+    );
+
+    if (!newUser) {
+      throw new InternalServerErrorException('Failed to create user');
+    }
 
     const newSession = await this.sessionsService.create({
       userId: newUser.id,
@@ -98,12 +112,17 @@ export class AuthService {
       userAgent: userAgent,
     });
 
+    if (!newSession) {
+      await this.usersService.remove(newUser.id);
+      throw new InternalServerErrorException('Failed to create session');
+    }
+
     return {
       id: newUser.id,
       username: newUser.username,
       email: newUser.email,
-      sessionId: newSession?.sessionId,
-      sessionExpirationDate: newSession?.expirationTime,
+      sessionId: newSession.sessionId,
+      sessionExpirationDate: newSession.expirationTime,
     };
   }
 

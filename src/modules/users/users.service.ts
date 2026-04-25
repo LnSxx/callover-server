@@ -9,13 +9,17 @@ import { Model } from 'mongoose';
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<User>) {}
 
-  async create({ username, password }: { username: string; password: string }) {
-    const passwordHash = await bcrypt.hash(password, 10);
-    const createdUser = new this.userModel({
-      username: username,
-      passwordHash: passwordHash,
-    });
-    return createdUser.save();
+  async create(username: string, password: string) {
+    try {
+      const passwordHash = await bcrypt.hash(password, 10);
+      const createdUser = new this.userModel({
+        username: username,
+        passwordHash: passwordHash,
+      });
+      return createdUser.save();
+    } catch {
+      return null;
+    }
   }
 
   async findById(id: string | undefined) {

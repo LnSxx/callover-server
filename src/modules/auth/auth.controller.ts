@@ -2,7 +2,8 @@ import {
   Body,
   Controller,
   Delete,
-  InternalServerErrorException,
+  HttpCode,
+  HttpStatus,
   Post,
   Req,
   Res,
@@ -21,41 +22,34 @@ export class AuthController {
 
   @Public()
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   async signIn(
     @Body() signInDto: SignInDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<SignInResponseDto> {
-    try {
-      const result = await this.authService.signIn({
-        username: signInDto.username,
-        email: signInDto.email,
-        password: signInDto.password,
-        ipAddress: req.ip,
-        userAgent: JSON.stringify(req.headers['User-Agent']),
-      });
-      res.cookie('sessionId', result.sessionId, {
-        httpOnly: true,
-        signed: true,
-        sameSite: 'lax',
-        secure: false,
-        expires: result.sessionExpirationDate,
-      });
-      return {
-        user: {
-          id: result.id,
-          username: result.username,
-          email: result.email,
-        },
-      };
-    } catch (err) {
-      console.error('Error during sign-in:', err);
-      throw new InternalServerErrorException();
-    }
+    const result = await this.authService.signIn({
+      username: signInDto.username,
+      email: signInDto.email,
+      password: signInDto.password,
+      ipAddress: req.ip,
+      userAgent: JSON.stringify(req.headers['user-agent']),
+    });
+
+    this.setSessionCookie(res, result.sessionId, result.sessionExpirationDate);
+
+    return {
+      user: {
+        id: result.id,
+        username: result.username,
+        email: result.email,
+      },
+    };
   }
 
   @Public()
   @Post('register')
+  @HttpCode(HttpStatus.CREATED)
   async register(
     @Body() signInDto: RegisterDto,
     @Req() req: Request,
@@ -65,15 +59,11 @@ export class AuthController {
       username: signInDto.username,
       password: signInDto.password,
       ipAddress: req.ip,
-      userAgent: JSON.stringify(req.headers['User-Agent']),
+      userAgent: JSON.stringify(req.headers['user-agent']),
     });
-    res.cookie('sessionId', result.sessionId, {
-      httpOnly: true,
-      signed: true,
-      sameSite: 'lax',
-      secure: false,
-      expires: result.sessionExpirationDate,
-    });
+
+    this.setSessionCookie(res, result.sessionId, result.sessionExpirationDate);
+
     return {
       user: {
         id: result.id,
@@ -84,17 +74,36 @@ export class AuthController {
   }
 
   @Delete('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const sessionId = req.signedCookies['sessionId'] as string | undefined;
     if (!sessionId) {
       return;
     }
     await this.authService.logout(sessionId);
+    this.clearSessionCookie(res);
+  }
+
+  private setSessionCookie(
+    res: Response,
+    sessionId: string,
+    expires: Date,
+  ): void {
+    res.cookie('sessionId', sessionId, {
+      httpOnly: true,
+      signed: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      expires,
+    });
+  }
+
+  private clearSessionCookie(res: Response): void {
     res.cookie('sessionId', '', {
       httpOnly: true,
       signed: true,
       sameSite: 'lax',
-      secure: false,
+      secure: process.env.NODE_ENV === 'production',
       expires: new Date(0),
     });
   }

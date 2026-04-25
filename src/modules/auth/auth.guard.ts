@@ -28,14 +28,22 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const sessionId = request.signedCookies['sessionId'] as string | undefined;
     if (!sessionId) {
+      // No session id was provided with request
+      // Unauthorized
       throw new UnauthorizedException();
     }
     try {
       const session = await this.sessionService.findSession(sessionId);
       if (!session) {
+        // No session mathcing provided session id
+        // Unauthorized
         throw new UnauthorizedException();
       }
-      if (session.expirationTime < new Date()) return false;
+      if (session.expirationTime < new Date()) {
+        // Session is expired
+        // Unauthrized
+        throw new UnauthorizedException();
+      }
       request['user'] = { id: session.userId };
       return true;
     } catch {
