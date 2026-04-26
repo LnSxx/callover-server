@@ -1,70 +1,165 @@
 import { Injectable } from '@nestjs/common';
 import { Model } from 'mongoose';
-import { Session } from './schemas/session.schema';
+import { Session, SessionDocument } from './schemas/session.schema';
 import { InjectModel } from '@nestjs/mongoose';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
+import type {
+  CreateSessionParams,
+  CreateSessionResult,
+} from './sessions.types';
+import { ConfigService } from '@nestjs/config';
+import {
+  DEFAULT_SESSION_TTL_DAYS,
+  SESSION_TOKEN_BYTES,
+} from './sessions.constants';
 
 @Injectable()
 export class SessionsService {
   constructor(
-    @InjectModel(Session.name) private sessionModel: Model<Session>,
+    @InjectModel(Session.name)
+    private readonly sessionModel: Model<SessionDocument>,
+    private readonly configService: ConfigService,
   ) {}
 
   async create({
     userId,
     ipAddress,
     userAgent,
-  }: {
-    userId: string;
-    ipAddress: string | undefined;
-    userAgent: string | undefined;
-  }): Promise<Session | null> {
-    const sessionId = randomBytes(32).toString('hex');
-    const newSession = new this.sessionModel({
-      sessionId,
+  }: CreateSessionParams): Promise<CreateSessionResult> {
+    const sessionId = randomBytes(SESSION_TOKEN_BYTES).toString('hex');
+    const sessionIdHash = this.hashSessionId(sessionId);
+    const now = new Date();
+
+    const sessionTtlDays = this.getSessionTtlDays();
+    const expirationTime = new Date(
+      now.getTime() + sessionTtlDays * 24 * 60 * 60 * 1000,
+    );
+
+    await this.sessionModel.create({
+      sessionIdHash,
       userId,
       ipAddress,
       userAgent,
-      lastActivity: new Date(),
+      lastActivity: now,
       isRevoked: false,
-      expirationTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+      expirationTime,
     });
-    await newSession.save();
-    return newSession;
+
+    return {
+      sessionId,
+      expirationTime,
+    };
   }
 
-  async findSession(sessionId: string): Promise<Session | null> {
-    const session = await this.sessionModel
+  async findSessionById(sessionId: string): Promise<SessionDocument | null> {
+    const sessionIdHash = this.hashSessionId(sessionId);
+    return this.sessionModel
       .findOne({
-        sessionId,
+        sessionIdHash,
         isRevoked: false,
         expirationTime: { $gt: new Date() },
       })
       .exec();
-    return session;
   }
 
-  async revokeSession(sessionId: string): Promise<void> {
-    await this.sessionModel
-      .findOneAndUpdate({ sessionId }, { isRevoked: true })
+  async revokeSession(sessionId: string): Promise<{ isRevoked: boolean }> {
+    const sessionIdHash = this.hashSessionId(sessionId);
+    const result = await this.sessionModel
+      .findOneAndUpdate(
+        {
+          sessionIdHash,
+          isRevoked: false,
+          expirationTime: { $gt: new Date() },
+        },
+        {
+          $set: { isRevoked: true },
+        },
+      )
       .exec();
+
+    return {
+      isRevoked: !!result,
+    };
   }
 
-  async revokeAllSessionsForUserId(userId: string): Promise<void> {
-    await this.sessionModel.updateMany({ userId }, { isRevoked: true }).exec();
-  }
-
-  async deleteSession(sessionId: string): Promise<void> {
-    await this.sessionModel.findOneAndDelete({ sessionId }).exec();
-  }
-
-  async deleteAllSessionsForUserId(userId: string): Promise<void> {
-    await this.sessionModel.deleteMany({ userId }).exec();
-  }
-
-  async updateActivity(sessionId: string) {
-    await this.sessionModel
-      .updateOne({ sessionId }, { lastActivity: new Date() })
+  async revokeAllSessionsForUserId(
+    userId: string,
+  ): Promise<{ revokedCount: number }> {
+    const result = await this.sessionModel
+      .updateMany(
+        {
+          userId,
+          isRevoked: false,
+          expirationTime: { $gt: new Date() },
+        },
+        {
+          $set: {
+            isRevoked: true,
+          },
+        },
+      )
       .exec();
+
+    return {
+      revokedCount: result.modifiedCount,
+    };
+  }
+
+  async deleteSession(sessionId: string): Promise<{ isDeleted: boolean }> {
+    const sessionIdHash = this.hashSessionId(sessionId);
+    const result = await this.sessionModel
+      .findOneAndDelete({ sessionIdHash })
+      .exec();
+
+    return {
+      isDeleted: !!result,
+    };
+  }
+
+  async deleteAllSessionsForUserId(
+    userId: string,
+  ): Promise<{ deletedCount: number }> {
+    const result = await this.sessionModel.deleteMany({ userId }).exec();
+
+    return {
+      deletedCount: result.deletedCount,
+    };
+  }
+
+  async updateActivity(sessionId: string): Promise<{ isUpdated: boolean }> {
+    const sessionIdHash = this.hashSessionId(sessionId);
+    const result = await this.sessionModel
+      .updateOne(
+        {
+          sessionIdHash,
+          isRevoked: false,
+          expirationTime: { $gt: new Date() },
+        },
+        {
+          $set: { lastActivity: new Date() },
+        },
+      )
+      .exec();
+
+    return {
+      isUpdated: result.modifiedCount > 0,
+    };
+  }
+
+  private hashSessionId(sessionId: string): string {
+    return createHash('sha256').update(sessionId).digest('hex');
+  }
+
+  private getSessionTtlDays(): number {
+    const sessionTtlDays = Number(
+      this.configService.get<string>('SESSION_TTL_DAYS') ??
+        DEFAULT_SESSION_TTL_DAYS,
+    );
+
+    if (!Number.isFinite(sessionTtlDays) || sessionTtlDays <= 0) {
+      throw new Error('SESSION_TTL_DAYS must be a positive number');
+    }
+
+    return sessionTtlDays;
   }
 }

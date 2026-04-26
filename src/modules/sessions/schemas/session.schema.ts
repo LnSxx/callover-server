@@ -6,7 +6,7 @@ export type SessionDocument = HydratedDocument<Session>;
 @Schema({ timestamps: true })
 export class Session {
   @Prop({ required: true, unique: true })
-  sessionId!: string;
+  sessionIdHash!: string;
 
   @Prop({ required: true })
   userId!: string;
@@ -28,3 +28,10 @@ export class Session {
 }
 
 export const SessionSchema = SchemaFactory.createForClass(Session);
+
+SessionSchema.index({ userId: 1 });
+SessionSchema.index({ expirationTime: 1 }, { expireAfterSeconds: 0 });
+SessionSchema.index({
+  sessionIdHash: 1,
+  isRevoked: 1,
+});

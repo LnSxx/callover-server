@@ -33,7 +33,7 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
     try {
-      const session = await this.sessionService.findSession(sessionId);
+      const session = await this.sessionService.findSessionById(sessionId);
       if (!session) {
         // No session mathcing provided session id
         // Unauthorized
