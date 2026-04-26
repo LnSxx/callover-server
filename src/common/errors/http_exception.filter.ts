@@ -99,6 +99,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
         return ApiErrorCode.CONFLICT;
       case HttpStatus.PAYLOAD_TOO_LARGE:
         return ApiErrorCode.PAYLOAD_TOO_LARGE;
+      case HttpStatus.TOO_MANY_REQUESTS:
+        return ApiErrorCode.TOO_MANY_REQUESTS;
       default:
         return `HTTP_${statusCode}`;
     }
@@ -118,6 +120,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
         return 'Conflict';
       case HttpStatus.PAYLOAD_TOO_LARGE:
         return 'Request body is too large';
+      case HttpStatus.TOO_MANY_REQUESTS:
+        return 'Too many requests';
       default:
         return 'Internal server error';
     }

@@ -11,9 +11,19 @@ import { PresenceModule } from './modules/presence/presence.module';
 import { PresenceSubscriptionsModule } from './modules/presenceSubsciptions/presenceSubscriptions.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { CallsModule } from './modules/calls/calls.module';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60000,
+          limit: 1000,
+        },
+      ],
+    }),
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRoot(process.env.MONGO_URI!),
     AuthModule,
@@ -26,6 +36,12 @@ import { CallsModule } from './modules/calls/calls.module';
     CallsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
