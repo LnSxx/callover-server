@@ -1,15 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  Contains,
+  IsByteLength,
   IsString,
   Matches,
   MaxLength,
   MinLength,
-  NotContains,
 } from 'class-validator';
 
 export class RegisterDto {
   @ApiProperty({ example: 'calloveruser' })
+  @IsString()
   @MinLength(4, {
     message: 'Username should be at least 4 characters long',
     context: {
@@ -25,7 +25,7 @@ export class RegisterDto {
   @Matches(/^[a-zA-Z0-9._]+$/, {
     message: 'Username can contain letters, numbers, dots and underscores',
     context: {
-      code: 'USERNAME_INVALID',
+      code: 'USERNAME_INVALID_',
     },
   })
   @Matches(/^(?!\d+$).+$/, {
@@ -52,22 +52,25 @@ export class RegisterDto {
       code: 'USERNAME_INVALID',
     },
   })
-  @Contains(' ', {
-    message: 'Username cannot contain spaces',
-    context: {
-      code: 'USERNAME_INVALID',
-    },
-  })
   username!: string;
 
   @ApiProperty({ example: 'u3ersPAs$w0Rd' })
-  @IsString()
-  @NotContains(' ', {
-    message: 'Password should not contain spaces',
-    context: {
-      code: 'INVALID',
-    },
+  @MinLength(8, {
+    message: 'Password should be at least 8 characters long',
+    context: { code: 'PASSWORD_TOO_SHORT' },
   })
-  @MinLength(8)
+  // bcrypt limitation
+  @IsByteLength(0, 72, {
+    message: 'Password should not be longer than 72 bytes',
+    context: { code: 'PASSWORD_TOO_LONG_BYTES' },
+  })
+  @Matches(/^\S(?:.*\S)?$/, {
+    message: 'Password must not start or end with whitespace',
+    context: { code: 'PASSWORD_EDGE_WHITESPACE' },
+  })
+  @Matches(/^[^\p{C}]+$/u, {
+    message: 'Password must not contain control characters',
+    context: { code: 'PASSWORD_CONTROL_CHARS' },
+  })
   password!: string;
 }

@@ -1,22 +1,33 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, MaxLength, MinLength } from 'class-validator';
 
 export class SignInDto {
-  @ApiPropertyOptional({
-    description: 'Either username or email must be provided',
+  @ApiProperty({
+    description: 'Username in system',
     example: 'calloveruser',
   })
-  username: string | undefined;
-
-  @ApiPropertyOptional({
-    description: 'Either username or email must be provided',
-    example: 'email@email.com',
+  @IsString()
+  @MinLength(1, {
+    message: 'Username is required',
+    context: {
+      code: 'USERNAME_IS_REQUIRED',
+    },
   })
-  email: string | undefined;
+  // Ignore excessively long input strings
+  @MaxLength(100)
+  username!: string;
 
   @ApiProperty({
     example: 'u3ersPAs$w0Rd',
   })
   @IsString()
+  @MinLength(1, {
+    message: 'Password is required',
+    context: {
+      code: 'PASSWORD_IS_REQUIRED',
+    },
+  })
+  // Ignore excessively long input strings
+  @MaxLength(512)
   password!: string;
 }

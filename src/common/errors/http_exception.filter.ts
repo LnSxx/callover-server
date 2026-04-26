@@ -24,11 +24,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
+    const bodyParserStatusCode = this.getBodyParserStatusCode(exception);
+
     const isHttpException = exception instanceof HttpException;
 
-    const statusCode = isHttpException
-      ? exception.getStatus()
-      : HttpStatus.INTERNAL_SERVER_ERROR;
+    const statusCode =
+      bodyParserStatusCode ??
+      (isHttpException
+        ? exception.getStatus()
+        : HttpStatus.INTERNAL_SERVER_ERROR);
 
     const exceptionResponse = isHttpException ? exception.getResponse() : null;
 
@@ -93,6 +97,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
         return ApiErrorCode.INTERNAL_SERVER_ERROR;
       case HttpStatus.CONFLICT:
         return ApiErrorCode.CONFLICT;
+      case HttpStatus.PAYLOAD_TOO_LARGE:
+        return ApiErrorCode.PAYLOAD_TOO_LARGE;
       default:
         return `HTTP_${statusCode}`;
     }
@@ -110,8 +116,40 @@ export class HttpExceptionFilter implements ExceptionFilter {
         return 'Not found';
       case HttpStatus.CONFLICT:
         return 'Conflict';
+      case HttpStatus.PAYLOAD_TOO_LARGE:
+        return 'Request body is too large';
       default:
         return 'Internal server error';
     }
+  }
+
+  private getBodyParserStatusCode(exception: unknown): HttpStatus | null {
+    if (!exception || typeof exception !== 'object') {
+      return null;
+    }
+
+    const error = exception as {
+      type?: string;
+      status?: number;
+      statusCode?: number;
+    };
+
+    if (
+      error.type === 'entity.too.large' ||
+      error.status === HttpStatus.PAYLOAD_TOO_LARGE ||
+      error.statusCode === HttpStatus.PAYLOAD_TOO_LARGE
+    ) {
+      return HttpStatus.PAYLOAD_TOO_LARGE;
+    }
+
+    if (
+      error.type === 'entity.parse.failed' ||
+      error.status === HttpStatus.BAD_REQUEST ||
+      error.statusCode === HttpStatus.BAD_REQUEST
+    ) {
+      return HttpStatus.BAD_REQUEST;
+    }
+
+    return null;
   }
 }

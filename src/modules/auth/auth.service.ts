@@ -17,13 +17,11 @@ export class AuthService {
 
   async signIn({
     username,
-    email,
     password,
     ipAddress,
     userAgent,
   }: {
-    username: string | undefined;
-    email: string | undefined;
+    username: string;
     password: string;
     ipAddress: string | undefined;
     userAgent: string | undefined;
@@ -34,7 +32,7 @@ export class AuthService {
     sessionId: string;
     sessionExpirationDate: Date;
   }> {
-    const user = await this.usersService.findBy(username, email);
+    const user = await this.usersService.findByUsername(username);
 
     // User not found
     if (!user) {
@@ -91,7 +89,7 @@ export class AuthService {
     const usernameNormalized = username.trim().toLowerCase();
 
     const existingUserWithUsername =
-      await this.usersService.findBy(usernameNormalized);
+      await this.usersService.findByUsername(usernameNormalized);
 
     if (existingUserWithUsername) {
       throw new ConflictException('Username is already taken');

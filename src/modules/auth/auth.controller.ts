@@ -30,7 +30,6 @@ export class AuthController {
   ): Promise<SignInResponseDto> {
     const result = await this.authService.signIn({
       username: signInDto.username,
-      email: signInDto.email,
       password: signInDto.password,
       ipAddress: req.ip,
       userAgent: JSON.stringify(req.headers['user-agent']),

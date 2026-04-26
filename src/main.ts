@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { HttpExceptionFilter } from './common/errors/http_exception.filter';
 import { validationExceptionFactory } from './common/errors/validation_exception.factory';
+import { json } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -36,6 +37,7 @@ async function bootstrap() {
       credentials: true,
     }),
   );
+  app.use('/auth', json({ limit: '2kb' }));
 
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 }

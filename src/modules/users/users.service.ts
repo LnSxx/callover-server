@@ -27,17 +27,8 @@ export class UsersService {
     return result;
   }
 
-  async findBy(username: string | undefined, email?: string) {
-    if (!username && !email) {
-      return null;
-    }
-    if (username) {
-      return await this.userModel.findOne({ username }).exec();
-    }
-    if (email) {
-      return await this.userModel.findOne({ email }).exec();
-    }
-    return null;
+  async findByUsername(username: string) {
+    return await this.userModel.findOne({ username }).exec();
   }
 
   async update(id: string, updateUserDto: UpdateUserDto) {
