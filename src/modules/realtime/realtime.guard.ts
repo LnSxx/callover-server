@@ -19,7 +19,7 @@ export class RealtimeAuthGuard implements CanActivate {
     }
 
     try {
-      const session = await this.sessionService.findSession(sessionId);
+      const session = await this.sessionService.findSessionById(sessionId);
       if (!session) {
         console.log('Invalid session');
 

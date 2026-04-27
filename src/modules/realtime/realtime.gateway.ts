@@ -442,7 +442,7 @@ export class RealtimeGateway
       }
 
       // Look up the session in the database to get the associated user ID
-      const session = await this.sessionsService.findSession(sessionId);
+      const session = await this.sessionsService.findSessionById(sessionId);
 
       // If the session doesn't exist or is invalid, return null
       if (!session) {

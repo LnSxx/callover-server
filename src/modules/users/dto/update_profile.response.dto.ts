@@ -1,3 +1,3 @@
 import { UserDto } from '../../../common/domain/user.dto';
 
-export class UpdateMeResponseDto extends UserDto {}
+export class UpdateProfileResponseDto extends UserDto {}

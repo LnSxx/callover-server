@@ -20,7 +20,7 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
-
+  app.use(json());
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(
     new ValidationPipe({
@@ -37,7 +37,6 @@ async function bootstrap() {
       credentials: true,
     }),
   );
-  app.use('/auth', json({ limit: '2kb' }));
 
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 }

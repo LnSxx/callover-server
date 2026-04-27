@@ -7,23 +7,40 @@ export type UserDocument = HydratedDocument<User>;
 export class User {
   @Prop({
     required: true,
+    trim: true,
+    lowercase: true,
     unique: true,
   })
   username!: string;
 
   @Prop({
-    unique: true,
-    sparse: true,
+    type: String,
+    trim: true,
+    lowercase: true,
   })
   email?: string;
 
   @Prop({
-    required: false,
+    required: true,
+    default: false,
   })
-  isEmailVerified?: boolean;
+  isEmailVerified!: boolean;
 
-  @Prop({ required: true })
+  @Prop({
+    required: true,
+    select: false,
+  })
   passwordHash!: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+UserSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      email: { $type: 'string' },
+    },
+  },
+);
