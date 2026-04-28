@@ -21,7 +21,6 @@ export class ContactsController {
     @CurrentUser() user: { id: string },
     @Body() createContactDto: CreateContactDto,
   ) {
-    console.log(createContactDto);
     return this.contactsService.create({
       ownerId: user.id,
       contactData: createContactDto,

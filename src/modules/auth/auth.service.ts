@@ -32,7 +32,7 @@ export class AuthService {
     sessionId: string;
     sessionExpirationDate: Date;
   }> {
-    const user = await this.usersService.findByUsername(username);
+    const user = await this.usersService.findByUsernameWithPassword(username);
 
     // User not found
     if (!user) {

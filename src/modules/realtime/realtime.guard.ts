@@ -13,16 +13,12 @@ export class RealtimeAuthGuard implements CanActivate {
     const sessionId = extractSignedSessionId(client);
 
     if (!sessionId) {
-      console.log('No session cookie');
-
       throw new WsException('No session cookie');
     }
 
     try {
       const session = await this.sessionService.findSessionById(sessionId);
       if (!session) {
-        console.log('Invalid session');
-
         throw new WsException('Invalid session');
       }
       if (session.expirationTime < new Date()) return false;

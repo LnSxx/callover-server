@@ -4,6 +4,7 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from './schemas/user.schema';
@@ -63,11 +64,13 @@ export class UsersService {
     id: string,
     params: UpdateProfileParams,
   ): Promise<UserDocument | null> {
-    const updateData = this.buildProfileUpdateData(params);
-    console.log('call updateProfile', updateData);
-
+    const user = await this.findById(id);
+    if (!user) {
+      throw new NotFoundException('Cannot find user with provided id');
+    }
+    const updateData = this.buildProfileUpdateData(params, user);
     if (Object.keys(updateData).length === 0) {
-      return this.findById(id);
+      return user;
     }
 
     try {
@@ -173,26 +176,42 @@ export class UsersService {
     );
   }
 
+  private buildProfileUpdateData(
+    params: UpdateProfileParams,
+    user: UserDocument,
+  ): Partial<User> {
+    // Result object with NEW data
+    const updateData: Partial<User> = {};
+
+    // Check if username was provided
+    if (params.username !== undefined) {
+      // Normalize given username
+      const usernameNormalized = this.normalizeUsername(params.username);
+      // Check if current username is exact the same as in the params
+      if (usernameNormalized !== user.username) {
+        // If not, put NEW username into result object
+        updateData.username = usernameNormalized;
+      }
+    }
+
+    // Check if email was provided
+    if (params.email !== undefined) {
+      const emailNormalized = this.normalizeEmail(params.email);
+      // Check if current email is exact the same as in the params
+      if (emailNormalized !== user.email) {
+        // If not, put NEW email into result object
+        updateData.email = emailNormalized;
+      }
+    }
+
+    return updateData;
+  }
+
   private normalizeUsername(username: string): string {
     return username.trim().toLowerCase();
   }
 
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
-  }
-
-  private buildProfileUpdateData(params: UpdateProfileParams): Partial<User> {
-    const updateData: Partial<User> = {};
-
-    if (params.username !== undefined) {
-      updateData.username = this.normalizeUsername(params.username);
-    }
-
-    if (params.email !== undefined) {
-      updateData.email = this.normalizeEmail(params.email);
-      updateData.isEmailVerified = false;
-    }
-
-    return updateData;
   }
 }

@@ -37,7 +37,6 @@ export class UsersController {
     @CurrentUser() user: { id: string },
     @Body() updateUserDto: UpdateProfileDto,
   ): Promise<UpdateProfileResponseDto> {
-    console.log('call controler user', updateUserDto);
     const updatedUser = await this.usersService.updateProfile(user.id, {
       username: updateUserDto.username,
       email: updateUserDto.email,
