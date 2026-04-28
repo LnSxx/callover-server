@@ -151,7 +151,7 @@ export class UsersService {
     }
   }
 
-  async remove(id: string): Promise<{ isDeleted: boolean }> {
+  async delete(id: string): Promise<{ isDeleted: boolean }> {
     const result = await this.userModel.findByIdAndDelete(id).exec();
 
     return {

@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { UsersModule } from './modules/users/users.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
@@ -13,6 +11,8 @@ import { SessionsModule } from './modules/sessions/sessions.module';
 import { CallsModule } from './modules/calls/calls.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { AccountsModule } from './modules/accounts/accounts.module';
+import { ProfileModule } from './modules/profile/profile.module';
 
 @Module({
   imports: [
@@ -27,6 +27,8 @@ import { APP_GUARD } from '@nestjs/core';
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRoot(process.env.MONGO_URI!),
     AuthModule,
+    AccountsModule,
+    ProfileModule,
     UsersModule,
     ContactsModule,
     RealtimeModule,
@@ -35,9 +37,7 @@ import { APP_GUARD } from '@nestjs/core';
     SessionsModule,
     CallsModule,
   ],
-  controllers: [AppController],
   providers: [
-    AppService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

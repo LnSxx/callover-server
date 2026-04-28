@@ -111,7 +111,7 @@ export class AuthService {
     });
 
     if (!newSession) {
-      await this.usersService.remove(newUser.id);
+      await this.usersService.delete(newUser.id);
       throw new InternalServerErrorException('Failed to create session');
     }
 

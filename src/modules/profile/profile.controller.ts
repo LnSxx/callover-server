@@ -3,19 +3,16 @@ import {
   Get,
   Body,
   Patch,
-  Delete,
   NotFoundException,
-  HttpCode,
 } from '@nestjs/common';
-import { UsersService } from './users.service';
-import { UpdateProfileDto } from './dto/update_profile.dto';
-import { GetMeResponseDto } from './dto/get_me.response.dto';
 import { CurrentUser } from '../../common/decorators/current_user.decorator';
+import { UsersService } from '../users/users.service';
+import { GetMeResponseDto } from './dto/get_me.response.dto';
+import { UpdateProfileDto } from './dto/update_profile.dto';
 import { UpdateProfileResponseDto } from './dto/update_profile.response.dto';
-import { ChangePasswordDto } from './dto/change_password.dto';
 
-@Controller('users')
-export class UsersController {
+@Controller('profile')
+export class ProfileController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
@@ -49,27 +46,5 @@ export class UsersController {
       username: updatedUser.username,
       email: updatedUser.email,
     };
-  }
-
-  @Patch('me/password')
-  @HttpCode(204)
-  async changePassword(
-    @CurrentUser() user: { id: string },
-    @Body() changePasswordDto: ChangePasswordDto,
-  ): Promise<void> {
-    const result = await this.usersService.changePassword(user.id, {
-      currentPassword: changePasswordDto.password,
-      newPassword: changePasswordDto.newPassword,
-    });
-
-    if (!result.isChanged) {
-      throw new NotFoundException();
-    }
-  }
-
-  @Delete('me')
-  @HttpCode(204)
-  async remove(@CurrentUser() user: { id: string }): Promise<void> {
-    await this.usersService.remove(user.id);
   }
 }

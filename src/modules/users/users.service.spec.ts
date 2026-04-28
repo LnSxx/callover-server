@@ -407,7 +407,7 @@ describe('UsersService', () => {
     it('should delete user and return true', async () => {
       userModelMock.findByIdAndDelete.mockReturnValue(execMock(mockUser));
 
-      const result = await service.remove('user-id');
+      const result = await service.delete('user-id');
 
       expect(userModelMock.findByIdAndDelete).toHaveBeenCalledWith('user-id');
       expect(result).toEqual({
@@ -418,7 +418,7 @@ describe('UsersService', () => {
     it('should return false if user was not found', async () => {
       userModelMock.findByIdAndDelete.mockReturnValue(execMock(null));
 
-      const result = await service.remove('user-id');
+      const result = await service.delete('user-id');
 
       expect(result).toEqual({
         isDeleted: false,

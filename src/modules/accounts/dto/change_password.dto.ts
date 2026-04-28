@@ -27,5 +27,5 @@ export class ChangePasswordDto {
     example: 'NEW u3ersPAs$w0Rd',
   })
   @IsValidPassword()
-  newPassword: string;
+  newPassword!: string;
 }
