@@ -11,7 +11,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
 import { CallsModule } from './modules/calls/calls.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { AccountsModule } from './modules/accounts/accounts.module';
+import { AccountsModule } from './modules/account/account.module';
 import { ProfileModule } from './modules/profile/profile.module';
 
 @Module({

@@ -8,12 +8,12 @@ import {
   Res,
 } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current_user.decorator';
-import { AccountsService } from '../accounts/accounts.service';
+import { AccountsService } from './account.service';
 import type { Response } from 'express';
 import { ChangePasswordDto } from './dto/change_password.dto';
 
 @Controller('account')
-export class AccountsController {
+export class AccountController {
   constructor(private readonly accountsService: AccountsService) {}
 
   @Patch('password')
