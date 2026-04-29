@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
@@ -41,6 +42,7 @@ describe('UsersService', () => {
     username: 'john',
     email: 'john@example.com',
     passwordHash: 'hashed-password',
+    isEmailVerified: true,
   };
 
   beforeEach(async () => {
@@ -154,12 +156,15 @@ describe('UsersService', () => {
 
   describe('updateProfile', () => {
     it('should update username and email', async () => {
+      userModelMock.findById.mockReturnValue(execMock(mockUser));
       userModelMock.findByIdAndUpdate.mockReturnValue(execMock(mockUser));
 
       const result = await service.updateProfile('user-id', {
         username: ' NewName ',
         email: ' TEST@EMAIL.COM ',
       });
+
+      expect(userModelMock.findById).toHaveBeenCalledWith('user-id');
 
       expect(userModelMock.findByIdAndUpdate).toHaveBeenCalledWith(
         'user-id',
@@ -180,6 +185,7 @@ describe('UsersService', () => {
     });
 
     it('should update only username', async () => {
+      userModelMock.findById.mockReturnValue(execMock(mockUser));
       userModelMock.findByIdAndUpdate.mockReturnValue(execMock(mockUser));
 
       await service.updateProfile('user-id', {
@@ -201,6 +207,7 @@ describe('UsersService', () => {
     });
 
     it('should update only email and reset isEmailVerified', async () => {
+      userModelMock.findById.mockReturnValue(execMock(mockUser));
       userModelMock.findByIdAndUpdate.mockReturnValue(execMock(mockUser));
 
       await service.updateProfile('user-id', {
@@ -232,7 +239,34 @@ describe('UsersService', () => {
       expect(result).toBe(mockUser);
     });
 
+    it('should return current user if provided data is the same', async () => {
+      userModelMock.findById.mockReturnValue(execMock(mockUser));
+
+      const result = await service.updateProfile('user-id', {
+        username: ' john ',
+        email: ' JOHN@EXAMPLE.COM ',
+      });
+
+      expect(userModelMock.findById).toHaveBeenCalledWith('user-id');
+      expect(userModelMock.findByIdAndUpdate).not.toHaveBeenCalled();
+      expect(result).toBe(mockUser);
+    });
+
+    it('should throw NotFoundException if user was not found', async () => {
+      userModelMock.findById.mockReturnValue(execMock(null));
+
+      await expect(
+        service.updateProfile('user-id', {
+          username: 'newname',
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(userModelMock.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
     it('should throw ConflictException on duplicate key error', async () => {
+      userModelMock.findById.mockReturnValue(execMock(mockUser));
+
       userModelMock.findByIdAndUpdate.mockReturnValue({
         exec: jest.fn().mockRejectedValue({
           code: 11000,
@@ -241,19 +275,21 @@ describe('UsersService', () => {
 
       await expect(
         service.updateProfile('user-id', {
-          username: 'john',
+          username: 'newname',
         }),
       ).rejects.toThrow(ConflictException);
     });
 
     it('should throw InternalServerErrorException on unknown error', async () => {
+      userModelMock.findById.mockReturnValue(execMock(mockUser));
+
       userModelMock.findByIdAndUpdate.mockReturnValue({
         exec: jest.fn().mockRejectedValue(new Error('database error')),
       });
 
       await expect(
         service.updateProfile('user-id', {
-          username: 'john',
+          username: 'newname',
         }),
       ).rejects.toThrow(InternalServerErrorException);
     });
@@ -403,7 +439,7 @@ describe('UsersService', () => {
     });
   });
 
-  describe('remove', () => {
+  describe('delete', () => {
     it('should delete user and return true', async () => {
       userModelMock.findByIdAndDelete.mockReturnValue(execMock(mockUser));
 

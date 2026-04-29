@@ -201,6 +201,7 @@ export class UsersService {
       if (emailNormalized !== user.email) {
         // If not, put NEW email into result object
         updateData.email = emailNormalized;
+        updateData.isEmailVerified = false;
       }
     }
 

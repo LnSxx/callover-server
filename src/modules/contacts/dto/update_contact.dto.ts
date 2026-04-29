@@ -1,24 +1,31 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Prop } from '@nestjs/mongoose';
+import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateContactDto {
   @ApiPropertyOptional({ example: 'Ivan Ivanov' })
-  @Prop()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
   alias?: string;
 
   @ApiPropertyOptional({ example: 'BF' })
-  @Prop()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   note?: string;
 
   @ApiPropertyOptional({ example: true })
-  @Prop()
+  @IsOptional()
+  @IsBoolean()
   isFavourite?: boolean;
 
   @ApiPropertyOptional({ example: true })
-  @Prop()
+  @IsOptional()
+  @IsBoolean()
   isBlocked?: boolean;
 
   @ApiPropertyOptional({ example: true })
-  @Prop()
+  @IsOptional()
+  @IsBoolean()
   isMuted?: boolean;
 }
