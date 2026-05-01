@@ -1,96 +1,132 @@
+import { randomUUID } from 'crypto';
 import { Injectable } from '@nestjs/common';
-
-// Type definition for an active call between two users
-// Call can be not active (ringing) and active (accepted)
-type Call = {
-  // User ID of call holder
-  userId: string;
-
-  // Socket ID of call holder
-  // When user initiates a call, the socketId sets immediately
-  // but when user receives a call, the socketId is null until
-  // user accepts the call and establishes a connection to the call room
-  socketId: string | null;
-
-  // Id of the peer user in the call
-  peerUserId: string;
-
-  // Unique ID of the call room
-  roomId: string;
-};
+import type { Call, CallInitResult, CallType } from './calls.types';
 
 @Injectable()
 export class CallsService {
-  // Map of userId to the call data
-  private activeCalls: Map<string, Call> = new Map();
+  // userId -> call
+  private calls: Map<string, Call> = new Map();
 
-  /**
-   * Initiates a call between two users and creates a call room.
-   * Returns the call room ID if the call was successfully initiated,
-   * or null if the call initiation failed (e.g., if either user is already in an active call).
-   * @param fromUserId - The ID of the user initiating the call
-   * @param toUserId - The ID of the user being called
-   * @param socketId - The socket ID of the user initiating the call
-   * @returns The call room ID if successful, or null if the call initiation failed
-   */
   initiateCall({
+    type,
     fromUserId,
     toUserId,
     socketId,
   }: {
+    type: CallType;
     fromUserId: string;
     toUserId: string;
     socketId: string;
-  }): string | null {
-    // Check if either the caller or the callee is already in an active call
-    if (this.activeCalls.has(toUserId)) {
-      return null;
+  }): CallInitResult {
+    if (fromUserId === toUserId) {
+      return {
+        success: false,
+        reason: 'self_call',
+      };
     }
-    // Generate a unique call room ID
-    const callId = `call_${fromUserId}_${toUserId}_${Date.now()}`;
 
-    // Store the active call data for both users
-    this.activeCalls.set(fromUserId, {
-      userId: toUserId,
+    if (this.calls.has(fromUserId)) {
+      return {
+        success: false,
+        reason: 'caller_busy',
+      };
+    }
+
+    if (this.calls.has(toUserId)) {
+      return {
+        success: false,
+        reason: 'callee_busy',
+      };
+    }
+
+    const callId = randomUUID();
+    const createdAt = new Date();
+
+    const callerCall: Call = {
+      type,
+      userId: fromUserId,
       socketId,
       peerUserId: toUserId,
       roomId: callId,
-    });
-    this.activeCalls.set(toUserId, {
-      userId: fromUserId,
-      socketId: null,
+      status: 'calling',
+      createdAt,
+    };
+
+    const calleeCall: Call = {
+      type,
+      userId: toUserId,
       peerUserId: fromUserId,
+      peerSocketId: socketId,
       roomId: callId,
-    });
+      status: 'ringing',
+      createdAt,
+    };
 
-    return callId;
+    this.calls.set(fromUserId, callerCall);
+    this.calls.set(toUserId, calleeCall);
+
+    return {
+      success: true,
+      call: callerCall,
+    };
   }
 
-  /**
-   * Ends an active call for the given user ID. If the user is in an active call,
-   * it will remove the call data for both the user and their calling partner.
-   * Does nothing if the user is not in an active call.
-   * @param userId - The ID of the user ending the call
-   */
-  endCall(userId: string): void {
-    // Getting active call data for the user
-    const callee = this.activeCalls.get(userId);
-    if (callee) {
-      // Has active call and can see who is the calling partner
-      // Deleting the active call mapping for the calling partner
-      this.activeCalls.delete(callee.peerUserId);
+  acceptCall({
+    userId,
+    socketId,
+  }: {
+    userId: string;
+    socketId: string;
+  }): Call | null {
+    const call = this.calls.get(userId);
+
+    if (!call || call.status !== 'ringing') {
+      return null;
     }
-    // Deleting the active call mapping for the user
-    this.activeCalls.delete(userId);
+
+    const peerCall = this.calls.get(call.peerUserId);
+
+    if (!peerCall || peerCall.status !== 'calling') {
+      return null;
+    }
+
+    const acceptedAt = new Date();
+
+    call.socketId = socketId;
+    call.peerSocketId = peerCall.socketId;
+    call.status = 'active';
+    call.acceptedAt = acceptedAt;
+
+    peerCall.peerSocketId = socketId;
+    peerCall.status = 'active';
+    peerCall.acceptedAt = acceptedAt;
+
+    return call;
   }
 
-  /**
-   * Returns user's active call data if not null
-   * @param userId - The ID of the user
-   * @returns The active call data for the user,
-   * or null if the user is not in an active call
-   */
+  endCall(userId: string): {
+    ended: boolean;
+  } {
+    const call = this.calls.get(userId);
+
+    if (!call) {
+      return {
+        ended: false,
+      };
+    }
+
+    const peersCall = this.calls.get(call.peerUserId);
+
+    if (peersCall) {
+      this.calls.delete(peersCall.userId);
+    }
+    this.calls.delete(userId);
+    return {
+      ended: true,
+    };
+  }
+
   getCall(userId: string): Call | null {
-    return this.activeCalls.get(userId) || null;
+    return this.calls.get(userId) || null;
   }
 }

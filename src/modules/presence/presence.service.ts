@@ -1,52 +1,30 @@
 import { Injectable } from '@nestjs/common';
-import { Socket } from 'socket.io';
-import { SessionsService } from '../sessions/sessions.service';
 
 @Injectable()
 export class PresenceService {
-  constructor(private readonly sessionsService: SessionsService) {}
-
-  // userId -> set of socketIds
   private readonly userToSockets: Map<string, Set<string>> = new Map();
-  // socketId -> userId
   private readonly socketToUser: Map<string, string> = new Map();
 
-  /// Method to handle new socket connections and update the presence state
-  handleConnection(
-    userId: string,
-    client: Socket,
-  ): {
-    userId: string | null;
-    becameOnline: boolean;
-  } {
-    // In case no user is associated with the socket connection
-    if (!userId)
-      return {
-        userId: null,
-        becameOnline: false,
-      };
+  markSocketOnline(userId: string, socketId: string): void {
+    const hasRegisteredSocket = this.socketToUser.has(socketId);
 
-    // Update the presence state by adding the socket to the user's set of active sockets
-    if (!this.userToSockets.has(userId)) {
-      this.userToSockets.set(userId, new Set());
+    if (hasRegisteredSocket) {
+      return;
     }
 
-    // Add the socket id to the user's set of active sockets and update the socket-to-user mapping
-    this.userToSockets.get(userId)!.add(client.id);
-    this.socketToUser.set(client.id, userId);
-    return {
-      userId,
-      becameOnline: true,
-    };
+    const sockets = this.userToSockets.get(userId) ?? new Set<string>();
+    sockets.add(socketId);
+
+    this.userToSockets.set(userId, sockets);
+    this.socketToUser.set(socketId, userId);
   }
 
-  /// Method to handle socket disconnection and clean up the mappings
-  handleDisconnect(client: Socket): {
+  markSocketOffline({ socketId }: { socketId: string }): {
     userId: string | null;
     becameOffline: boolean;
   } {
-    // This should never happen
-    const userId = this.socketToUser.get(client.id);
+    const userId = this.socketToUser.get(socketId);
+
     if (!userId) {
       return {
         userId: null,
@@ -54,13 +32,9 @@ export class PresenceService {
       };
     }
 
-    // Clean up the mappings
-    // Remove the socket from the user's set of sockets
-    this.socketToUser.delete(client.id);
-
-    // If the user has no more active sockets, remove them from the userToSockets map
+    this.socketToUser.delete(socketId);
     const sockets = this.userToSockets.get(userId);
-    // This should never happen
+
     if (!sockets) {
       return {
         userId,
@@ -68,10 +42,8 @@ export class PresenceService {
       };
     }
 
-    // Remove the socket from the user's set of sockets
-    sockets.delete(client.id);
+    sockets.delete(socketId);
 
-    // In case the user has no more active sockets, remove them from the userToSockets map
     if (sockets.size === 0) {
       this.userToSockets.delete(userId);
       return {
@@ -94,7 +66,7 @@ export class PresenceService {
     return [...this.userToSockets.keys()];
   }
 
-  getSocketsForUser(userId: string): Set<string> {
-    return this.userToSockets.get(userId) ?? new Set();
+  getSocketIdsForUser(userId: string): string[] {
+    return [...(this.userToSockets.get(userId) ?? [])];
   }
 }
