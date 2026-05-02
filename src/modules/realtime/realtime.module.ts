@@ -4,6 +4,8 @@ import { SessionsModule } from '../sessions/sessions.module';
 import { PresenceModule } from '../presence/presence.module';
 import { PresenceSubscriptionsModule } from '../presenceSubsciptions/presenceSubscriptions.module';
 import { CallsModule } from '../calls/calls.module';
+import { APP_GUARD } from '@nestjs/core';
+import { RealtimeAuthGuard } from './realtime.guard';
 
 @Module({
   imports: [
@@ -12,6 +14,12 @@ import { CallsModule } from '../calls/calls.module';
     PresenceSubscriptionsModule,
     CallsModule,
   ],
-  providers: [RealtimeGateway],
+  providers: [
+    RealtimeGateway,
+    {
+      provide: APP_GUARD,
+      useClass: RealtimeAuthGuard,
+    },
+  ],
 })
 export class RealtimeModule {}
