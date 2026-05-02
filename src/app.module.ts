@@ -13,6 +13,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AccountsModule } from './modules/account/account.module';
 import { ProfileModule } from './modules/profile/profile.module';
+import { SignalingModule } from './modules/signaling/signaling.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ProfileModule } from './modules/profile/profile.module';
     UsersModule,
     ContactsModule,
     RealtimeModule,
+    SignalingModule,
     PresenceModule,
     PresenceSubscriptionsModule,
     SessionsModule,

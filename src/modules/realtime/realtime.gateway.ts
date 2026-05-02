@@ -30,10 +30,10 @@ import {
 } from './realtime.events';
 import type { AuthedSocket } from './realtime.types';
 import { CallsService } from '../calls/calls.service';
-import { CallIceCandidateMessageDto } from './dto/callIceCandidate.message.dto';
-import { CallCancelMessageDto } from './dto/callCancel.message.dto';
-import { CallOfferMessageDto } from './dto/callOffer.message.dto';
-import { CallAnswerMessageDto } from './dto/callAnswer.message.dto';
+import { CallIceCandidateMessageDto } from '../signaling/dto/callIceCandidate.message.dto';
+import { CallCancelMessageDto } from '../signaling/dto/callCancel.message.dto';
+import { CallOfferMessageDto } from '../signaling/dto/callOffer.message.dto';
+import { CallAnswerMessageDto } from '../signaling/dto/callAnswer.message.dto';
 
 @WebSocketGateway({
   namespace: 'events',
@@ -65,27 +65,19 @@ export class RealtimeGateway
       return;
     }
 
-    const result = this.presenceService.handleConnection(userId, client);
+    this.presenceService.markSocketOnline(userId, client.id);
 
-    if (result.becameOnline) {
-      // Notify all subscribers that the user has come online
-      const watchersUserIds =
-        this.presenceSubscriptionsService.getWatchers(userId);
+    // Notify all subscribers that the user has come online
+    const watchersUserIds =
+      this.presenceSubscriptionsService.getWatchers(userId);
 
-      const watcherSocketIds = Array.from(watchersUserIds).flatMap(
-        (watcherUserId) => {
-          const sockets = this.presenceService.getSocketsForUser(watcherUserId);
-          return Array.from(sockets);
+    for (const watcherSocketId of watchersUserIds) {
+      this.server.to(watcherSocketId).emit('message', {
+        type: RealtimeEvents.PresenceUserOnline,
+        payload: {
+          userId: userId,
         },
-      );
-      for (const watcherSocketId of watcherSocketIds) {
-        this.server.to(watcherSocketId).emit('message', {
-          type: RealtimeEvents.PresenceUserOnline,
-          payload: {
-            userId: result.userId,
-          },
-        } as PresenceUserOnlineEvent);
-      }
+      } as PresenceUserOnlineEvent);
     }
   }
 
@@ -122,7 +114,7 @@ export class RealtimeGateway
     }
 
     // Register disconnection of client and see if user became offline (has no active sockets)
-    const result = this.presenceService.handleDisconnect(client);
+    const result = this.presenceService.markSocketOffline(client.id);
 
     if (result.becameOffline && result.userId) {
       // Notify all subscribers that the user has gone offline
@@ -132,18 +124,9 @@ export class RealtimeGateway
         result.userId,
       );
 
-      if (watchersUserIds.size != 0) {
-        // User has watchers, notify them about disconnection
-        const watcherSocketIds = Array.from(watchersUserIds).flatMap(
-          (watcherUserId) => {
-            const sockets =
-              this.presenceService.getSocketsForUser(watcherUserId);
-            return Array.from(sockets);
-          },
-        );
-
+      if (watchersUserIds.length != 0) {
         // Send the offline status to all watchers
-        for (const watcherSocketId of watcherSocketIds) {
+        for (const watcherSocketId of watchersUserIds) {
           this.server.to(watcherSocketId).emit('message', {
             type: RealtimeEvents.PresenceUserOffline,
             payload: {
@@ -190,245 +173,6 @@ export class RealtimeGateway
         onlineUserIds: onlineUsers,
       },
     } as PresenceInitialEvent);
-  }
-
-  @UsePipes(
-    new ValidationPipe({
-      exceptionFactory: (errors) => new WsException(errors),
-    }),
-  )
-  @SubscribeMessage(RealtimeEvents.CallOffer)
-  async handleCallOfferMessage(
-    @MessageBody() body: CallOfferMessageDto,
-    @ConnectedSocket() client: AuthedSocket,
-  ) {
-    const clientData = client.data as { user?: { id: string } } | undefined;
-    const userId = clientData?.user?.id;
-
-    if (!userId) {
-      client.disconnect();
-      return;
-    }
-
-    // Trying to initiate the call and create a call room
-    const roomId = this.callsService.initiateCall({
-      fromUserId: userId,
-      toUserId: body.toUserId,
-      socketId: client.id,
-    });
-
-    if (!roomId) {
-      // Call initiation failed
-      // User is busy or blocked, or some other reason
-      // TODO: Send an appropriate error message back to the caller
-      return;
-    }
-
-    // Check if the target user is online and has active sockets
-    const targetSockets = this.presenceService.getSocketsForUser(body.toUserId);
-
-    if (targetSockets.size === 0) {
-      // TODO: Implement wake up call logic here
-      // Right now can not send the call offer
-      return;
-    }
-
-    // Can send the offer
-    // Joining user to the call room
-    await client.join(roomId);
-
-    // Sending the call offer to the target user
-    for (const socketId of targetSockets) {
-      this.server.to(socketId).emit('message', {
-        type: RealtimeEvents.CallOffer,
-        payload: {
-          fromUserId: userId,
-          sdp: body.sdp,
-          type: body.type,
-        },
-      } as CallOfferRelayEvent);
-    }
-  }
-
-  @UsePipes(
-    new ValidationPipe({
-      exceptionFactory: (errors) => new WsException(errors),
-    }),
-  )
-  @SubscribeMessage(RealtimeEvents.CallAnswer)
-  async handleCallAnswerMessage(
-    @MessageBody() body: CallAnswerMessageDto,
-    @ConnectedSocket() client: AuthedSocket,
-  ) {
-    const clientData = client.data as { user?: { id: string } } | undefined;
-    const userId = clientData?.user?.id;
-
-    if (!userId) {
-      client.disconnect();
-      return;
-    }
-
-    // Check if user send Session Description Protocol (SDP) in the call answer message
-    // If sdp is null it means user declined the call
-    if (!body.sdp) {
-      // User declined :(
-      // Sending the call decline message to the caller
-
-      // Getting the caller's specific room
-      const call = this.callsService.getCall(userId);
-
-      if (!call) {
-        // Weird state
-        // No active call found for the user, can't send the decline message
-        return;
-      }
-
-      // Getting caller's specific room and sending the call decline message to the caller
-      client.to(call.roomId).emit('message', {
-        type: RealtimeEvents.CallAnswer,
-        payload: {
-          fromUserId: userId,
-        },
-      } as CallAnswerRelayEvent);
-
-      // Ending the call and cleaning up the call room
-      this.callsService.endCall(userId);
-      return;
-    }
-
-    // User accepted the call
-    // Getting the caller's specific room
-    const call = this.callsService.getCall(userId);
-    if (!call) {
-      // Weird state
-      // No active call found for the user, can't send the answer message
-      return;
-    }
-
-    // Getting caller's specific room and sending the call answer message to the caller
-    client.to(call.roomId).emit('message', {
-      type: RealtimeEvents.CallAnswer,
-      payload: {
-        fromUserId: userId,
-        sdp: body.sdp,
-      },
-    } as CallAnswerRelayEvent);
-
-    // Joining user to the call room
-    await client.join(call.roomId);
-  }
-
-  @UsePipes(
-    new ValidationPipe({
-      exceptionFactory: (errors) => new WsException(errors),
-    }),
-  )
-  @SubscribeMessage(RealtimeEvents.CallCancel)
-  handleCallCancelMessage(
-    @MessageBody() body: CallCancelMessageDto,
-    @ConnectedSocket() client: AuthedSocket,
-  ) {
-    const clientData = client.data as { user?: { id: string } } | undefined;
-    const userId = clientData?.user?.id;
-
-    if (!userId) {
-      client.disconnect();
-      return;
-    }
-
-    // Getting the caller's specific room
-    const call = this.callsService.getCall(userId);
-    if (!call) {
-      // Weird state
-      // No active call found for the user, can't send the cancel message
-      return;
-    }
-
-    // Sending the call cancel message to the callee
-    const calleeSockets = this.presenceService.getSocketsForUser(
-      call.peerUserId,
-    );
-    for (const socketId of calleeSockets) {
-      this.server.to(socketId).emit('message', {
-        type: RealtimeEvents.CallCancel,
-        payload: {
-          fromUserId: userId,
-        },
-      } as CallCancelRelayEvent);
-    }
-
-    // Ending the call and cleaning up the call room
-    this.callsService.endCall(userId);
-  }
-
-  @UsePipes(
-    new ValidationPipe({
-      exceptionFactory: (errors) => new WsException(errors),
-    }),
-  )
-  @SubscribeMessage(RealtimeEvents.CallEnd)
-  handleCallEndMessage(
-    @MessageBody() body: CallCancelMessageDto,
-    @ConnectedSocket() client: AuthedSocket,
-  ) {
-    const clientData = client.data as { user?: { id: string } };
-    const fromUserId = clientData.user?.id;
-
-    if (!fromUserId) {
-      client.disconnect();
-      return;
-    }
-
-    // Getting the call room for the user
-    const call = this.callsService.getCall(fromUserId);
-    if (!call) {
-      // No active call found for the user, can't cancel non-existing call
-      return;
-    }
-
-    client.to(call.roomId).emit('message', {
-      type: RealtimeEvents.CallEnd,
-      payload: {
-        fromUserId: fromUserId,
-      },
-    } as CallEndRelayEvent);
-
-    this.callsService.endCall(fromUserId);
-  }
-
-  @UsePipes(
-    new ValidationPipe({
-      exceptionFactory: (errors) => new WsException(errors),
-    }),
-  )
-  @SubscribeMessage(RealtimeEvents.CallIceCandidate)
-  handleCallIceCandidateMessage(
-    @MessageBody() body: CallIceCandidateMessageDto,
-    @ConnectedSocket() client: AuthedSocket,
-  ) {
-    const clientData = client.data as { user?: { id: string } };
-    const fromUserId = clientData.user?.id;
-
-    if (!fromUserId) {
-      client.disconnect();
-      return;
-    }
-
-    // Getting the call room for the user
-    const call = this.callsService.getCall(fromUserId);
-    if (!call) {
-      // No active call found for the user, can't send the ICE candidate
-      return;
-    }
-
-    // Sending the ICE candidate to the other user in the call room
-    this.server.to(call.roomId).emit('message', {
-      type: RealtimeEvents.CallIceCandidate,
-      payload: {
-        fromUserId: fromUserId,
-        candidate: body.candidate,
-      },
-    } as CallIceCandidateRelayEvent);
   }
 
   private async extractUserId(client: Socket): Promise<string | null> {

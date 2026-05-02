@@ -19,7 +19,7 @@ export class PresenceService {
     this.socketToUser.set(socketId, userId);
   }
 
-  markSocketOffline({ socketId }: { socketId: string }): {
+  markSocketOffline(socketId: string): {
     userId: string | null;
     becameOffline: boolean;
   } {
