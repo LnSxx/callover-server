@@ -17,23 +17,16 @@ import { PresenceService } from '../presence/presence.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { PresenceSubscriptionsService } from '../presenceSubsciptions/presenceSubscriptions.service';
 import { PresenceSubscribeDto } from './dto/presence.subscribe.dto';
-import {
-  CallAnswerRelayEvent,
-  CallCancelRelayEvent,
-  CallEndRelayEvent,
-  CallIceCandidateRelayEvent,
-  CallOfferRelayEvent,
+import type {
+  AuthedSocket,
   PresenceInitialEvent,
   PresenceUserOfflineEvent,
   PresenceUserOnlineEvent,
-  RealtimeEvents,
-} from './realtime.events';
-import type { AuthedSocket } from './realtime.types';
+} from './realtime.types';
 import { CallsService } from '../calls/calls.service';
-import { CallIceCandidateMessageDto } from '../signaling/dto/callIceCandidate.message.dto';
-import { CallCancelMessageDto } from '../signaling/dto/callCancel.message.dto';
-import { CallOfferMessageDto } from '../signaling/dto/callOffer.message.dto';
-import { CallAnswerMessageDto } from '../signaling/dto/callAnswer.message.dto';
+import { RealtimeEventTypes } from './realtime.events';
+import { CallEndEvent } from '../signaling/signaling.types';
+import { SignalingEventTypes } from '../signaling/signaling.events';
 
 @WebSocketGateway({
   namespace: 'events',
@@ -73,7 +66,7 @@ export class RealtimeGateway
 
     for (const watcherSocketId of watchersUserIds) {
       this.server.to(watcherSocketId).emit('message', {
-        type: RealtimeEvents.PresenceUserOnline,
+        type: RealtimeEventTypes.PresenceUserOnline,
         payload: {
           userId: userId,
         },
@@ -104,11 +97,11 @@ export class RealtimeGateway
 
       if (calleeSocketId) {
         this.server.to(calleeSocketId).emit('message', {
-          type: RealtimeEvents.CallEnd,
+          type: SignalingEventTypes.CallEnd,
           payload: {
             fromUserId: userId,
           },
-        } as CallEndRelayEvent);
+        } as CallEndEvent);
       }
       this.callsService.endCall(userId);
     }
@@ -128,7 +121,7 @@ export class RealtimeGateway
         // Send the offline status to all watchers
         for (const watcherSocketId of watchersUserIds) {
           this.server.to(watcherSocketId).emit('message', {
-            type: RealtimeEvents.PresenceUserOffline,
+            type: RealtimeEventTypes.PresenceUserOffline,
             payload: {
               userId: result.userId,
             },
@@ -168,7 +161,7 @@ export class RealtimeGateway
     );
 
     client.emit('message', {
-      type: RealtimeEvents.PresenceInitial,
+      type: RealtimeEventTypes.PresenceInitial,
       payload: {
         onlineUserIds: onlineUsers,
       },

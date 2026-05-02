@@ -1,7 +1,7 @@
-import { IsArray, IsString } from 'class-validator';
+import { IsArray, IsMongoId } from 'class-validator';
 
 export class PresenceSubscribeDto {
   @IsArray()
-  @IsString({ each: true })
+  @IsMongoId({ each: true })
   userIds!: string[];
 }
