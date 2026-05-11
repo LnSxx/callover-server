@@ -17,6 +17,12 @@ export enum ValidationErrorCode {
   PASSWORD_TOO_BIG = 'PASSWORD_TOO_BIG',
   PASSWORD_EDGE_WHITESPACE = 'PASSWORD_EDGE_WHITESPACE',
   PASSWORD_HAS_CONTROLS = 'PASSWORD_HAS_CONTROLS',
+
+  // Contact user ID validation errors
+  CONTACT_UID_INVALID = 'CONTACT_UID_INVALID',
+
+  // Contact name validation errors
+  CONTACT_NAME_TOO_BIG = 'CONTACT_NAME_TOO_BIG',
 }
 
 export function getValidationErrorCodeDefaultMessage(
@@ -48,6 +54,12 @@ export function getValidationErrorCodeDefaultMessage(
       return 'Password should not start or end with whitespace';
     case ValidationErrorCode.PASSWORD_HAS_CONTROLS:
       return 'Password must not contain control characters';
+
+    case ValidationErrorCode.CONTACT_UID_INVALID:
+      return 'Contact user ID is invalid';
+
+    case ValidationErrorCode.CONTACT_NAME_TOO_BIG:
+      return 'Contact name is invalid';
     default:
       return code.toString();
   }
