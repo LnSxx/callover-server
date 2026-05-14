@@ -60,11 +60,17 @@ export class RealtimeGateway
 
     this.presenceService.markSocketOnline(userId, client.id);
 
-    // Notify all subscribers that the user has come online
     const watchersUserIds =
       this.presenceSubscriptionsService.getWatchers(userId);
+    const watchersSocketIds = watchersUserIds
+      .map((watchersUserId) => {
+        const socketsForUser =
+          this.presenceService.getSocketIdsForUser(watchersUserId);
+        return socketsForUser;
+      })
+      .flat();
 
-    for (const watcherSocketId of watchersUserIds) {
+    for (const watcherSocketId of watchersSocketIds) {
       this.server.to(watcherSocketId).emit('message', {
         type: RealtimeEventTypes.PresenceUserOnline,
         payload: {
@@ -74,63 +80,53 @@ export class RealtimeGateway
     }
   }
 
-  handleDisconnect(@ConnectedSocket() client: Socket | AuthedSocket) {
-    // Get user ID from socket
-    const clientData = client.data as { user?: { id: string } } | undefined;
-    const userId = clientData?.user?.id;
+  handleDisconnect(client: Socket) {
+    const result = this.presenceService.markSocketOffline(client.id);
 
-    // Check if we know client
-    if (!userId) {
-      // We do not know who disconnected from socket. Do nothing
+    if (!result.userId) {
       return;
     }
 
+    const userId = result.userId;
+
+    // active call cleanup
     const call = this.callsService.getCall(userId);
-    const socketIdOfCall = call != null ? call.socketId : null;
-    if (call && client.id === socketIdOfCall) {
-      // Has active call on this socket
-      // End call and notify other hand
 
-      const calleeSocketId = this.callsService.getCall(
-        call.peerUserId,
-      )?.socketId;
+    if (call && client.id === call.socketId) {
+      const peerSocketId = this.callsService.getCall(call.peerUserId)?.socketId;
 
-      if (calleeSocketId) {
-        this.server.to(calleeSocketId).emit('message', {
+      if (peerSocketId) {
+        this.server.to(peerSocketId).emit('message', {
           type: SignalingEventTypes.CallEnd,
           payload: {
             fromUserId: userId,
           },
         } as CallEndEvent);
       }
+
       this.callsService.endCall(userId);
     }
 
-    // Register disconnection of client and see if user became offline (has no active sockets)
-    const result = this.presenceService.markSocketOffline(client.id);
+    if (result.becameOffline) {
+      const watcherUserIds =
+        this.presenceSubscriptionsService.getWatchers(userId);
+      const watchersSocketIds = watcherUserIds
+        .map((watchersUserId) => {
+          const socketsForUser =
+            this.presenceService.getSocketIdsForUser(watchersUserId);
+          return socketsForUser;
+        })
+        .flat();
 
-    if (result.becameOffline && result.userId) {
-      // Notify all subscribers that the user has gone offline
-
-      // Get users that followed disconnected client
-      const watchersUserIds = this.presenceSubscriptionsService.getWatchers(
-        result.userId,
-      );
-
-      if (watchersUserIds.length != 0) {
-        // Send the offline status to all watchers
-        for (const watcherSocketId of watchersUserIds) {
-          this.server.to(watcherSocketId).emit('message', {
-            type: RealtimeEventTypes.PresenceUserOffline,
-            payload: {
-              userId: result.userId,
-            },
-          } as PresenceUserOfflineEvent);
-        }
+      for (const watcherSocketId of watchersSocketIds) {
+        this.server.to(watcherSocketId).emit('message', {
+          type: RealtimeEventTypes.PresenceUserOffline,
+          payload: {
+            userId,
+          },
+        } as PresenceUserOfflineEvent);
       }
 
-      // Unregister all presence subscriptions of the user as he is now
-      // offline and can not receive any presence updates
       this.presenceSubscriptionsService.unsubscribe(userId);
     }
   }
