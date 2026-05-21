@@ -19,7 +19,16 @@ export type CallAnswerEvent = {
 
 export type CallAnswerEventPayload = {
   fromUserId: string;
-  sdp?: string | null;
+  sdp: string;
+};
+
+export type CallDeclineEvent = {
+  type: SignalingEventTypes.CallDecline;
+  payload: CallDeclineEventPayload;
+};
+
+export type CallDeclineEventPayload = {
+  fromUserId: string;
 };
 
 export type CallCancelEvent = {
@@ -47,5 +56,7 @@ export type CallIceCandidateEvent = {
 
 export type CallIceCandidateEventPayload = {
   fromUserId: string;
-  candidate: string;
+  sdp: string;
+  sdpMLineIndex: number;
+  sdpMid?: string;
 };

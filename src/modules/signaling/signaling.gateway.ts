@@ -20,10 +20,12 @@ import { SignalingEventTypes } from './signaling.events';
 import {
   CallAnswerEvent,
   CallCancelEvent,
+  CallDeclineEvent,
   CallEndEvent,
   CallIceCandidateEvent,
   CallOfferEvent,
 } from './signaling.types';
+import { CallDeclineMessageDto } from './dto/callDecline.message.sto';
 
 @WebSocketGateway({
   namespace: 'events',
@@ -43,6 +45,27 @@ export class SignalingGateway {
   @WebSocketServer()
   server!: Server;
 
+  private log(action: string, data?: Record<string, unknown>) {
+    console.log(`[SignalingGateway] ${action}`, data ?? '');
+  }
+
+  private getUserIdOrDisconnect(client: AuthedSocket): string | null {
+    const clientData = client.data as { user?: { id: string } } | undefined;
+    const userId = clientData?.user?.id;
+
+    if (!userId) {
+      this.log('unauthorized socket, disconnecting', {
+        socketId: client.id,
+        hasClientData: Boolean(clientData),
+      });
+
+      client.disconnect();
+      return null;
+    }
+
+    return userId;
+  }
+
   @UsePipes(
     new ValidationPipe({
       exceptionFactory: (errors) => new WsException(errors),
@@ -53,15 +76,17 @@ export class SignalingGateway {
     @MessageBody() body: CallOfferMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
-    const clientData = client.data as { user?: { id: string } } | undefined;
-    const userId = clientData?.user?.id;
+    const userId = this.getUserIdOrDisconnect(client);
+    if (!userId) return;
 
-    if (!userId) {
-      client.disconnect();
-      return;
-    }
+    this.log('CallOffer received', {
+      fromUserId: userId,
+      toUserId: body.toUserId,
+      socketId: client.id,
+      callType: body.type,
+      hasSdp: Boolean(body.sdp),
+    });
 
-    // Trying to initiate the call and create a call room
     const result = this.callsService.initiateCall({
       type: body.type,
       fromUserId: userId,
@@ -70,29 +95,57 @@ export class SignalingGateway {
     });
 
     if (!result.success) {
-      // Call initiation failed
-      // User is busy or blocked, or some other reason
-      // TODO: Send an appropriate error message back to the caller
+      this.log('CallOffer rejected by callsService', {
+        fromUserId: userId,
+        toUserId: body.toUserId,
+        socketId: client.id,
+      });
       return;
     }
 
-    // Check if the target user is online and has active sockets
+    this.log('CallOffer call initiated', {
+      fromUserId: userId,
+      toUserId: body.toUserId,
+      roomId: result.call.roomId,
+      peerUserId: result.call.peerUserId,
+    });
+
     const targetSockets = this.presenceService.getSocketIdsForUser(
       body.toUserId,
     );
 
+    this.log('CallOffer target sockets resolved', {
+      toUserId: body.toUserId,
+      targetSocketCount: targetSockets.length,
+      targetSockets,
+    });
+
     if (targetSockets.length === 0) {
-      // TODO: Implement wake up call logic here
-      // Right now can not send the call offer
+      this.log('CallOffer stopped, target user has no active sockets', {
+        fromUserId: userId,
+        toUserId: body.toUserId,
+        roomId: result.call.roomId,
+      });
       return;
     }
 
-    // Can send the offer
-    // Joining user to the call room
     await client.join(result.call.roomId);
 
-    // Sending the call offer to the target user
+    this.log('CallOffer caller joined room', {
+      fromUserId: userId,
+      socketId: client.id,
+      roomId: result.call.roomId,
+    });
+
     for (const socketId of targetSockets) {
+      this.log('CallOffer emitting to target socket', {
+        fromUserId: userId,
+        toUserId: body.toUserId,
+        targetSocketId: socketId,
+        roomId: result.call.roomId,
+        hasSdp: Boolean(body.sdp),
+      });
+
       this.server.to(socketId).emit('message', {
         type: SignalingEventTypes.CallOffer,
         payload: {
@@ -102,6 +155,13 @@ export class SignalingGateway {
         },
       } as CallOfferEvent);
     }
+
+    this.log('CallOffer completed', {
+      fromUserId: userId,
+      toUserId: body.toUserId,
+      emittedToSocketCount: targetSockets.length,
+      roomId: result.call.roomId,
+    });
   }
 
   @UsePipes(
@@ -114,52 +174,30 @@ export class SignalingGateway {
     @MessageBody() body: CallAnswerMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
-    const clientData = client.data as { user?: { id: string } } | undefined;
-    const userId = clientData?.user?.id;
+    const userId = this.getUserIdOrDisconnect(client);
+    if (!userId) return;
 
-    if (!userId) {
-      client.disconnect();
-      return;
-    }
+    this.log('CallAnswer received', {
+      fromUserId: userId,
+      socketId: client.id,
+    });
 
-    // Check if user send Session Description Protocol (SDP) in the call answer message
-    // If sdp is null it means user declined the call
-    if (!body.sdp) {
-      // User declined :(
-      // Sending the call decline message to the caller
-
-      // Getting the caller's specific room
-      const call = this.callsService.getCall(userId);
-
-      if (!call) {
-        // Weird state
-        // No active call found for the user, can't send the decline message
-        return;
-      }
-
-      // Getting caller's specific room and sending the call decline message to the caller
-      client.to(call.roomId).emit('message', {
-        type: SignalingEventTypes.CallAnswer,
-        payload: {
-          fromUserId: userId,
-        },
-      } as CallAnswerEvent);
-
-      // Ending the call and cleaning up the call room
-      this.callsService.endCall(userId);
-      return;
-    }
-
-    // User accepted the call
-    // Getting the caller's specific room
     const call = this.callsService.getCall(userId);
+
     if (!call) {
-      // Weird state
-      // No active call found for the user, can't send the answer message
+      this.log('CallAnswer stopped, no active call found', {
+        fromUserId: userId,
+        socketId: client.id,
+      });
       return;
     }
 
-    // Getting caller's specific room and sending the call answer message to the caller
+    this.log('CallAnswer emitting SDP answer to room', {
+      fromUserId: userId,
+      roomId: call.roomId,
+      peerUserId: call.peerUserId,
+    });
+
     client.to(call.roomId).emit('message', {
       type: SignalingEventTypes.CallAnswer,
       payload: {
@@ -168,8 +206,64 @@ export class SignalingGateway {
       },
     } as CallAnswerEvent);
 
-    // Joining user to the call room
     await client.join(call.roomId);
+
+    this.log('CallAnswer client joined room', {
+      fromUserId: userId,
+      socketId: client.id,
+      roomId: call.roomId,
+    });
+
+    this.log('CallAnswer completed', {
+      fromUserId: userId,
+      roomId: call.roomId,
+    });
+  }
+
+  @UsePipes(
+    new ValidationPipe({
+      exceptionFactory: (errors) => new WsException(errors),
+    }),
+  )
+  @SubscribeMessage(SignalingEventTypes.CallDecline)
+  handleCallDeclineMessage(
+    @MessageBody() body: CallDeclineMessageDto,
+    @ConnectedSocket() client: AuthedSocket,
+  ) {
+    const userId = this.getUserIdOrDisconnect(client);
+    if (!userId) return;
+
+    const call = this.callsService.getCall(userId);
+
+    if (!call) {
+      this.log('CallDecline stopped, no active call found', {
+        fromUserId: userId,
+        socketId: client.id,
+      });
+      return;
+    }
+
+    this.log('CallDecline emitting empty answer to room', {
+      fromUserId: userId,
+      roomId: call.roomId,
+      peerUserId: call.peerUserId,
+    });
+
+    client.to(call.roomId).emit('message', {
+      type: SignalingEventTypes.CallDecline,
+      payload: {
+        fromUserId: userId,
+      },
+    } as CallDeclineEvent);
+
+    this.callsService.endCall(userId);
+
+    this.log('CallDecline ended call after decline messages', {
+      fromUserId: userId,
+      roomId: call.roomId,
+    });
+
+    return;
   }
 
   @UsePipes(
@@ -182,27 +276,45 @@ export class SignalingGateway {
     @MessageBody() body: CallCancelMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
-    const clientData = client.data as { user?: { id: string } } | undefined;
-    const userId = clientData?.user?.id;
+    const userId = this.getUserIdOrDisconnect(client);
+    if (!userId) return;
 
-    if (!userId) {
-      client.disconnect();
-      return;
-    }
+    this.log('CallCancel received', {
+      fromUserId: userId,
+      socketId: client.id,
+      bodyKeys: Object.keys(body ?? {}),
+    });
 
-    // Getting the caller's specific room
     const call = this.callsService.getCall(userId);
+
     if (!call) {
-      // Weird state
-      // No active call found for the user, can't send the cancel message
+      this.log('CallCancel stopped, no active call found', {
+        fromUserId: userId,
+        socketId: client.id,
+      });
       return;
     }
 
-    // Sending the call cancel message to the callee
     const calleeSockets = this.presenceService.getSocketIdsForUser(
       call.peerUserId,
     );
+
+    this.log('CallCancel target sockets resolved', {
+      fromUserId: userId,
+      peerUserId: call.peerUserId,
+      roomId: call.roomId,
+      targetSocketCount: calleeSockets.length,
+      targetSockets: calleeSockets,
+    });
+
     for (const socketId of calleeSockets) {
+      this.log('CallCancel emitting to peer socket', {
+        fromUserId: userId,
+        peerUserId: call.peerUserId,
+        targetSocketId: socketId,
+        roomId: call.roomId,
+      });
+
       this.server.to(socketId).emit('message', {
         type: SignalingEventTypes.CallCancel,
         payload: {
@@ -211,8 +323,14 @@ export class SignalingGateway {
       } as CallCancelEvent);
     }
 
-    // Ending the call and cleaning up the call room
     this.callsService.endCall(userId);
+
+    this.log('CallCancel completed, call ended', {
+      fromUserId: userId,
+      peerUserId: call.peerUserId,
+      roomId: call.roomId,
+      emittedToSocketCount: calleeSockets.length,
+    });
   }
 
   @UsePipes(
@@ -225,29 +343,45 @@ export class SignalingGateway {
     @MessageBody() body: CallCancelMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
-    const clientData = client.data as { user?: { id: string } };
-    const fromUserId = clientData.user?.id;
+    const fromUserId = this.getUserIdOrDisconnect(client);
+    if (!fromUserId) return;
 
-    if (!fromUserId) {
-      client.disconnect();
-      return;
-    }
+    this.log('CallEnd received', {
+      fromUserId,
+      socketId: client.id,
+      bodyKeys: Object.keys(body ?? {}),
+    });
 
-    // Getting the call room for the user
     const call = this.callsService.getCall(fromUserId);
+
     if (!call) {
-      // No active call found for the user, can't cancel non-existing call
+      this.log('CallEnd stopped, no active call found', {
+        fromUserId,
+        socketId: client.id,
+      });
       return;
     }
+
+    this.log('CallEnd emitting to room', {
+      fromUserId,
+      roomId: call.roomId,
+      peerUserId: call.peerUserId,
+    });
 
     client.to(call.roomId).emit('message', {
       type: SignalingEventTypes.CallEnd,
       payload: {
-        fromUserId: fromUserId,
+        fromUserId,
       },
     } as CallEndEvent);
 
     this.callsService.endCall(fromUserId);
+
+    this.log('CallEnd completed, call ended', {
+      fromUserId,
+      peerUserId: call.peerUserId,
+      roomId: call.roomId,
+    });
   }
 
   @UsePipes(
@@ -260,27 +394,22 @@ export class SignalingGateway {
     @MessageBody() body: CallIceCandidateMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
-    const clientData = client.data as { user?: { id: string } };
-    const fromUserId = clientData.user?.id;
+    const fromUserId = this.getUserIdOrDisconnect(client);
+    if (!fromUserId) return;
 
-    if (!fromUserId) {
-      client.disconnect();
-      return;
-    }
-
-    // Getting the call room for the user
     const call = this.callsService.getCall(fromUserId);
+
     if (!call) {
-      // No active call found for the user, can't send the ICE candidate
       return;
     }
 
-    // Sending the ICE candidate to the other user in the call room
     this.server.to(call.roomId).emit('message', {
       type: SignalingEventTypes.CallIceCandidate,
       payload: {
-        fromUserId: fromUserId,
-        candidate: body.candidate,
+        fromUserId,
+        sdp: body.sdp,
+        sdpMLineIndex: body.sdpMLineIndex,
+        sdpMid: body.sdpMid,
       },
     } as CallIceCandidateEvent);
   }

@@ -6,5 +6,5 @@ export class CallAnswerMessageDto {
 
   @IsOptional()
   @IsString()
-  sdp?: string | null;
+  sdp!: string;
 }
