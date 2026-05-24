@@ -1,13 +1,28 @@
 import { randomUUID } from 'crypto';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import type { RedisClientType } from 'redis';
+import { REDIS_CLIENT } from '../redis/redis.provider';
 import type { Call, CallInitResult, CallType } from './calls.types';
 
 @Injectable()
 export class CallsService {
-  // userId -> call
-  private calls: Map<string, Call> = new Map();
+  constructor(
+    @Inject(REDIS_CLIENT)
+    private readonly redis: RedisClientType,
+  ) {}
 
-  initiateCall({
+  private readonly ringingTtlSeconds = 120;
+  private readonly activeTtlSeconds = 21_600;
+
+  private userCallKey(userId: string): string {
+    return `calls:user:${userId}`;
+  }
+
+  private roomUsersKey(roomId: string): string {
+    return `calls:room:${roomId}:users`;
+  }
+
+  async initiateCall({
     type,
     fromUserId,
     toUserId,
@@ -17,7 +32,7 @@ export class CallsService {
     fromUserId: string;
     toUserId: string;
     socketId: string;
-  }): CallInitResult {
+  }): Promise<CallInitResult> {
     if (fromUserId === toUserId) {
       return {
         success: false,
@@ -25,14 +40,18 @@ export class CallsService {
       };
     }
 
-    if (this.calls.has(fromUserId)) {
+    const callerBusy = await this.redis.exists(this.userCallKey(fromUserId));
+
+    if (callerBusy) {
       return {
         success: false,
         reason: 'caller_busy',
       };
     }
 
-    if (this.calls.has(toUserId)) {
+    const calleeBusy = await this.redis.exists(this.userCallKey(toUserId));
+
+    if (calleeBusy) {
       return {
         success: false,
         reason: 'callee_busy',
@@ -62,8 +81,18 @@ export class CallsService {
       createdAt,
     };
 
-    this.calls.set(fromUserId, callerCall);
-    this.calls.set(toUserId, calleeCall);
+    await this.redis
+      .multi()
+      .set(this.userCallKey(fromUserId), JSON.stringify(callerCall), {
+        EX: this.ringingTtlSeconds,
+      })
+      .set(this.userCallKey(toUserId), JSON.stringify(calleeCall), {
+        EX: this.ringingTtlSeconds,
+      })
+      .sAdd(this.roomUsersKey(callId), fromUserId)
+      .sAdd(this.roomUsersKey(callId), toUserId)
+      .expire(this.roomUsersKey(callId), this.ringingTtlSeconds)
+      .exec();
 
     return {
       success: true,
@@ -71,20 +100,20 @@ export class CallsService {
     };
   }
 
-  acceptCall({
+  async acceptCall({
     userId,
     socketId,
   }: {
     userId: string;
     socketId: string;
-  }): Call | null {
-    const call = this.calls.get(userId);
+  }): Promise<Call | null> {
+    const call = await this.getCall(userId);
 
     if (!call || call.status !== 'ringing') {
       return null;
     }
 
-    const peerCall = this.calls.get(call.peerUserId);
+    const peerCall = await this.getCall(call.peerUserId);
 
     if (!peerCall || peerCall.status !== 'calling') {
       return null;
@@ -92,22 +121,39 @@ export class CallsService {
 
     const acceptedAt = new Date();
 
-    call.socketId = socketId;
-    call.peerSocketId = peerCall.socketId;
-    call.status = 'active';
-    call.acceptedAt = acceptedAt;
+    const updatedCall: Call = {
+      ...call,
+      socketId,
+      peerSocketId: peerCall.socketId,
+      status: 'active',
+      acceptedAt,
+    };
 
-    peerCall.peerSocketId = socketId;
-    peerCall.status = 'active';
-    peerCall.acceptedAt = acceptedAt;
+    const updatedPeerCall: Call = {
+      ...peerCall,
+      peerSocketId: socketId,
+      status: 'active',
+      acceptedAt,
+    };
 
-    return call;
+    await this.redis
+      .multi()
+      .set(this.userCallKey(userId), JSON.stringify(updatedCall), {
+        EX: this.activeTtlSeconds,
+      })
+      .set(this.userCallKey(peerCall.userId), JSON.stringify(updatedPeerCall), {
+        EX: this.activeTtlSeconds,
+      })
+      .expire(this.roomUsersKey(call.roomId), this.activeTtlSeconds)
+      .exec();
+
+    return updatedCall;
   }
 
-  endCall(userId: string): {
+  async endCall(userId: string): Promise<{
     ended: boolean;
-  } {
-    const call = this.calls.get(userId);
+  }> {
+    const call = await this.getCall(userId);
 
     if (!call) {
       return {
@@ -115,18 +161,44 @@ export class CallsService {
       };
     }
 
-    const peersCall = this.calls.get(call.peerUserId);
+    const roomUsers = await this.redis.sMembers(this.roomUsersKey(call.roomId));
 
-    if (peersCall) {
-      this.calls.delete(peersCall.userId);
+    const multi = this.redis.multi();
+
+    for (const roomUserId of roomUsers) {
+      multi.del(this.userCallKey(roomUserId));
     }
-    this.calls.delete(userId);
+
+    multi.del(this.roomUsersKey(call.roomId));
+
+    await multi.exec();
+
     return {
       ended: true,
     };
   }
 
-  getCall(userId: string): Call | null {
-    return this.calls.get(userId) || null;
+  async getCall(userId: string): Promise<Call | null> {
+    const rawCall = await this.redis.get(this.userCallKey(userId));
+
+    if (!rawCall) {
+      return null;
+    }
+
+    const parsedCall = JSON.parse(rawCall) as Omit<
+      Call,
+      'createdAt' | 'acceptedAt'
+    > & {
+      createdAt: string;
+      acceptedAt?: string;
+    };
+
+    return {
+      ...parsedCall,
+      createdAt: new Date(parsedCall.createdAt),
+      acceptedAt: parsedCall.acceptedAt
+        ? new Date(parsedCall.acceptedAt)
+        : undefined,
+    };
   }
 }

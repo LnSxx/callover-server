@@ -99,11 +99,11 @@ export class RealtimeGateway
 
     const userId = result.userId;
 
-    // active call cleanup
-    const call = this.callsService.getCall(userId);
+    const call = await this.callsService.getCall(userId);
 
     if (call && client.id === call.socketId) {
-      const peerSocketId = this.callsService.getCall(call.peerUserId)?.socketId;
+      const peerCall = await this.callsService.getCall(call.peerUserId);
+      const peerSocketId = peerCall?.socketId;
 
       if (peerSocketId) {
         this.server.to(peerSocketId).emit('message', {
@@ -114,7 +114,7 @@ export class RealtimeGateway
         } as CallEndEvent);
       }
 
-      this.callsService.endCall(userId);
+      await this.callsService.endCall(userId);
     }
 
     if (result.becameOffline) {

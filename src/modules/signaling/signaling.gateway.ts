@@ -70,7 +70,7 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const result = this.callsService.initiateCall({
+    const result = await this.callsService.initiateCall({
       type: body.type,
       fromUserId: userId,
       toUserId: body.toUserId,
@@ -116,13 +116,16 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const call = this.callsService.getCall(userId);
+    const acceptedCall = await this.callsService.acceptCall({
+      userId: userId,
+      socketId: client.id,
+    });
 
-    if (!call) {
+    if (!acceptedCall) {
       return;
     }
 
-    client.to(call.roomId).emit('message', {
+    client.to(acceptedCall.roomId).emit('message', {
       type: SignalingEventTypes.CallAnswer,
       payload: {
         fromUserId: userId,
@@ -130,7 +133,7 @@ export class SignalingGateway {
       },
     } as CallAnswerEvent);
 
-    await client.join(call.roomId);
+    await client.join(acceptedCall.roomId);
   }
 
   @UsePipes(
@@ -139,14 +142,14 @@ export class SignalingGateway {
     }),
   )
   @SubscribeMessage(SignalingEventTypes.CallDecline)
-  handleCallDeclineMessage(
+  async handleCallDeclineMessage(
     @MessageBody() body: CallDeclineMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const call = this.callsService.getCall(userId);
+    const call = await this.callsService.getCall(userId);
 
     if (!call) {
       return;
@@ -159,7 +162,7 @@ export class SignalingGateway {
       },
     } as CallDeclineEvent);
 
-    this.callsService.endCall(userId);
+    await this.callsService.endCall(userId);
 
     return;
   }
@@ -177,7 +180,7 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const call = this.callsService.getCall(userId);
+    const call = await this.callsService.getCall(userId);
 
     if (!call) {
       return;
@@ -196,7 +199,7 @@ export class SignalingGateway {
       } as CallCancelEvent);
     }
 
-    this.callsService.endCall(userId);
+    await this.callsService.endCall(userId);
   }
 
   @UsePipes(
@@ -205,14 +208,14 @@ export class SignalingGateway {
     }),
   )
   @SubscribeMessage(SignalingEventTypes.CallEnd)
-  handleCallEndMessage(
+  async handleCallEndMessage(
     @MessageBody() body: CallCancelMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
     const fromUserId = this.getUserIdOrDisconnect(client);
     if (!fromUserId) return;
 
-    const call = this.callsService.getCall(fromUserId);
+    const call = await this.callsService.getCall(fromUserId);
 
     if (!call) {
       return;
@@ -225,7 +228,7 @@ export class SignalingGateway {
       },
     } as CallEndEvent);
 
-    this.callsService.endCall(fromUserId);
+    await this.callsService.endCall(fromUserId);
   }
 
   @UsePipes(
@@ -234,14 +237,14 @@ export class SignalingGateway {
     }),
   )
   @SubscribeMessage(SignalingEventTypes.CallIceCandidate)
-  handleCallIceCandidateMessage(
+  async handleCallIceCandidateMessage(
     @MessageBody() body: CallIceCandidateMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
     const fromUserId = this.getUserIdOrDisconnect(client);
     if (!fromUserId) return;
 
-    const call = this.callsService.getCall(fromUserId);
+    const call = await this.callsService.getCall(fromUserId);
 
     if (!call) {
       return;

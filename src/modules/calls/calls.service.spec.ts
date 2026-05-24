@@ -1,16 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+import { FakeRedis } from '../redis/fakeRedis';
 import { CallsService } from './calls.service';
 
 describe('CallsService', () => {
   let service: CallsService;
 
   beforeEach(() => {
-    service = new CallsService();
+    service = new CallsService(new FakeRedis() as any);
   });
 
   describe('initiateCall', () => {
-    it('should initiate call', () => {
-      const result = service.initiateCall({
+    it('should initiate call', async () => {
+      const result = await service.initiateCall({
         type: 'audio',
         fromUserId: 'user-1',
         toUserId: 'user-2',
@@ -33,7 +35,7 @@ describe('CallsService', () => {
         createdAt: expect.any(Date),
       });
 
-      expect(service.getCall('user-2')).toEqual({
+      await expect(service.getCall('user-2')).resolves.toEqual({
         type: 'audio',
         userId: 'user-2',
         peerUserId: 'user-1',
@@ -44,8 +46,8 @@ describe('CallsService', () => {
       });
     });
 
-    it('should fail on self call', () => {
-      const result = service.initiateCall({
+    it('should fail on self call', async () => {
+      const result = await service.initiateCall({
         type: 'audio',
         fromUserId: 'user-1',
         toUserId: 'user-1',
@@ -58,15 +60,15 @@ describe('CallsService', () => {
       });
     });
 
-    it('should fail if caller is busy', () => {
-      service.initiateCall({
+    it('should fail if caller is busy', async () => {
+      await service.initiateCall({
         type: 'audio',
         fromUserId: 'user-1',
         toUserId: 'user-2',
         socketId: 'socket-1',
       });
 
-      const result = service.initiateCall({
+      const result = await service.initiateCall({
         type: 'audio',
         fromUserId: 'user-1',
         toUserId: 'user-3',
@@ -79,15 +81,15 @@ describe('CallsService', () => {
       });
     });
 
-    it('should fail if callee is busy', () => {
-      service.initiateCall({
+    it('should fail if callee is busy', async () => {
+      await service.initiateCall({
         type: 'audio',
         fromUserId: 'user-1',
         toUserId: 'user-2',
         socketId: 'socket-1',
       });
 
-      const result = service.initiateCall({
+      const result = await service.initiateCall({
         type: 'audio',
         fromUserId: 'user-3',
         toUserId: 'user-2',
@@ -102,8 +104,8 @@ describe('CallsService', () => {
   });
 
   describe('acceptCall', () => {
-    it('should accept ringing call', () => {
-      const initResult = service.initiateCall({
+    it('should accept ringing call', async () => {
+      const initResult = await service.initiateCall({
         type: 'video',
         fromUserId: 'user-1',
         toUserId: 'user-2',
@@ -114,7 +116,7 @@ describe('CallsService', () => {
         throw new Error('Expected success');
       }
 
-      const acceptedCall = service.acceptCall({
+      const acceptedCall = await service.acceptCall({
         userId: 'user-2',
         socketId: 'socket-2',
       });
@@ -131,7 +133,7 @@ describe('CallsService', () => {
         acceptedAt: expect.any(Date),
       });
 
-      expect(service.getCall('user-1')).toEqual({
+      await expect(service.getCall('user-1')).resolves.toEqual({
         type: 'video',
         userId: 'user-1',
         socketId: 'socket-1',
@@ -144,8 +146,8 @@ describe('CallsService', () => {
       });
     });
 
-    it('should return null if user has no call', () => {
-      const result = service.acceptCall({
+    it('should return null if user has no call', async () => {
+      const result = await service.acceptCall({
         userId: 'user-1',
         socketId: 'socket-1',
       });
@@ -153,15 +155,15 @@ describe('CallsService', () => {
       expect(result).toBeNull();
     });
 
-    it('should return null if caller tries to accept own calling state', () => {
-      service.initiateCall({
+    it('should return null if caller tries to accept own calling state', async () => {
+      await service.initiateCall({
         type: 'audio',
         fromUserId: 'user-1',
         toUserId: 'user-2',
         socketId: 'socket-1',
       });
 
-      const result = service.acceptCall({
+      const result = await service.acceptCall({
         userId: 'user-1',
         socketId: 'socket-1',
       });
@@ -171,26 +173,26 @@ describe('CallsService', () => {
   });
 
   describe('endCall', () => {
-    it('should end call for both users', () => {
-      service.initiateCall({
+    it('should end call for both users', async () => {
+      await service.initiateCall({
         type: 'audio',
         fromUserId: 'user-1',
         toUserId: 'user-2',
         socketId: 'socket-1',
       });
 
-      const result = service.endCall('user-1');
+      const result = await service.endCall('user-1');
 
       expect(result).toEqual({
         ended: true,
       });
 
-      expect(service.getCall('user-1')).toBeNull();
-      expect(service.getCall('user-2')).toBeNull();
+      await expect(service.getCall('user-1')).resolves.toBeNull();
+      await expect(service.getCall('user-2')).resolves.toBeNull();
     });
 
-    it('should return false if user has no call', () => {
-      const result = service.endCall('unknown-user');
+    it('should return false if user has no call', async () => {
+      const result = await service.endCall('unknown-user');
 
       expect(result).toEqual({
         ended: false,
@@ -199,8 +201,8 @@ describe('CallsService', () => {
   });
 
   describe('getCall', () => {
-    it('should return null if call does not exist', () => {
-      expect(service.getCall('user-1')).toBeNull();
+    it('should return null if call does not exist', async () => {
+      await expect(service.getCall('user-1')).resolves.toBeNull();
     });
   });
 });
