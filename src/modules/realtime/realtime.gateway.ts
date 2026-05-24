@@ -62,10 +62,11 @@ export class RealtimeGateway
 
     client.data.presenceRefreshInterval = setInterval(() => {
       void this.presenceService.refreshSocket(userId, client.id);
+      void this.presenceSubscriptionsService.refreshSubscriptions(userId);
     }, 120_000);
 
     const watcherUserIds =
-      this.presenceSubscriptionsService.getWatchers(userId);
+      await this.presenceSubscriptionsService.getWatchers(userId);
 
     const watcherSocketIds: string[] = [];
 
@@ -118,7 +119,7 @@ export class RealtimeGateway
 
     if (result.becameOffline) {
       const watcherUserIds =
-        this.presenceSubscriptionsService.getWatchers(userId);
+        await this.presenceSubscriptionsService.getWatchers(userId);
 
       const watcherSocketIds: string[] = [];
 
@@ -137,7 +138,7 @@ export class RealtimeGateway
         } as PresenceUserOfflineEvent);
       }
 
-      this.presenceSubscriptionsService.unsubscribe(userId);
+      await this.presenceSubscriptionsService.unsubscribe(userId);
     }
   }
 
@@ -159,7 +160,7 @@ export class RealtimeGateway
       return;
     }
     // Subscribe the user to presence updates for the specified contacts
-    this.presenceSubscriptionsService.subscribe(userId, body.userIds);
+    await this.presenceSubscriptionsService.subscribe(userId, body.userIds);
 
     // Get the initial presence state for the subscribed contacts and send it back to the client
     const usersToShow = body.userIds;
