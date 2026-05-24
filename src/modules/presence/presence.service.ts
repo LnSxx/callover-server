@@ -9,6 +9,12 @@ export class PresenceService {
     private readonly redis: RedisClientType,
   ) {}
 
+  private readonly socketTtlSeconds = 600;
+
+  private onlineUsersKey(): string {
+    return 'presence:online_users';
+  }
+
   private userSocketsKey(userId: string): string {
     return `presence:user:${userId}:sockets`;
   }
@@ -17,9 +23,18 @@ export class PresenceService {
     return `presence:socket:${socketId}:user`;
   }
 
+  private nowMs(): number {
+    return Date.now();
+  }
+
+  private expiresAtMs(): number {
+    return this.nowMs() + this.socketTtlSeconds * 1000;
+  }
+
   async markSocketOnline(userId: string, socketId: string): Promise<void> {
     const socketKey = this.socketUserKey(socketId);
     const userSocketsKey = this.userSocketsKey(userId);
+    const expiresAt = this.expiresAtMs();
 
     const hasRegisteredSocket = await this.redis.exists(socketKey);
 
@@ -29,9 +44,36 @@ export class PresenceService {
 
     await this.redis
       .multi()
-      .sAdd(userSocketsKey, socketId)
-      .set(socketKey, userId)
-      .sAdd('presence:online_users', userId)
+      .zAdd(userSocketsKey, {
+        score: expiresAt,
+        value: socketId,
+      })
+      .set(socketKey, userId, {
+        EX: this.socketTtlSeconds,
+      })
+      .sAdd(this.onlineUsersKey(), userId)
+      .exec();
+  }
+
+  async refreshSocket(userId: string, socketId: string): Promise<void> {
+    const socketKey = this.socketUserKey(socketId);
+    const userSocketsKey = this.userSocketsKey(userId);
+    const expiresAt = this.expiresAtMs();
+
+    const registeredUserId = await this.redis.get(socketKey);
+
+    if (registeredUserId !== userId) {
+      return;
+    }
+
+    await this.redis
+      .multi()
+      .expire(socketKey, this.socketTtlSeconds)
+      .zAdd(userSocketsKey, {
+        score: expiresAt,
+        value: socketId,
+      })
+      .sAdd(this.onlineUsersKey(), userId)
       .exec();
   }
 
@@ -54,16 +96,16 @@ export class PresenceService {
     await this.redis
       .multi()
       .del(socketKey)
-      .sRem(userSocketsKey, socketId)
+      .zRem(userSocketsKey, socketId)
       .exec();
 
-    const socketsCount = await this.redis.sCard(userSocketsKey);
+    const socketsCount = await this.redis.zCard(userSocketsKey);
 
     if (socketsCount === 0) {
       await this.redis
         .multi()
         .del(userSocketsKey)
-        .sRem('presence:online_users', userId)
+        .sRem(this.onlineUsersKey(), userId)
         .exec();
 
       return {
@@ -78,16 +120,64 @@ export class PresenceService {
     };
   }
 
+  async cleanupExpiredSocketsForUser(userId: string): Promise<void> {
+    const userSocketsKey = this.userSocketsKey(userId);
+    const expiredSocketIds = await this.redis.zRangeByScore(
+      userSocketsKey,
+      0,
+      this.nowMs(),
+    );
+
+    if (expiredSocketIds.length === 0) {
+      return;
+    }
+
+    const multi = this.redis.multi();
+
+    for (const socketId of expiredSocketIds) {
+      multi.del(this.socketUserKey(socketId));
+      multi.zRem(userSocketsKey, socketId);
+    }
+
+    await multi.exec();
+
+    const socketsCount = await this.redis.zCard(userSocketsKey);
+
+    if (socketsCount === 0) {
+      await this.redis
+        .multi()
+        .del(userSocketsKey)
+        .sRem(this.onlineUsersKey(), userId)
+        .exec();
+    }
+  }
+
   async isUserOnline(userId: string): Promise<boolean> {
-    const socketsCount = await this.redis.sCard(this.userSocketsKey(userId));
+    await this.cleanupExpiredSocketsForUser(userId);
+
+    const socketsCount = await this.redis.zCard(this.userSocketsKey(userId));
+
     return socketsCount > 0;
   }
 
   async getOnlineUserIds(): Promise<string[]> {
-    return this.redis.sMembers('presence:online_users');
+    const userIds = await this.redis.sMembers(this.onlineUsersKey());
+    const onlineUserIds: string[] = [];
+
+    for (const userId of userIds) {
+      const isOnline = await this.isUserOnline(userId);
+
+      if (isOnline) {
+        onlineUserIds.push(userId);
+      }
+    }
+
+    return onlineUserIds;
   }
 
   async getSocketIdsForUser(userId: string): Promise<string[]> {
-    return this.redis.sMembers(this.userSocketsKey(userId));
+    await this.cleanupExpiredSocketsForUser(userId);
+
+    return this.redis.zRange(this.userSocketsKey(userId), 0, -1);
   }
 }

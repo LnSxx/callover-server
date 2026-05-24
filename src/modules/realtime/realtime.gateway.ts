@@ -17,16 +17,16 @@ import { PresenceService } from '../presence/presence.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { PresenceSubscriptionsService } from '../presenceSubsciptions/presenceSubscriptions.service';
 import { PresenceSubscribeDto } from './dto/presence.subscribe.dto';
-import type {
-  AuthedSocket,
+import type { AuthedSocket } from './realtime.types';
+import { CallsService } from '../calls/calls.service';
+import { PresenceEventTypes } from '../presence/presence.events';
+import { CallEndEvent } from '../signaling/signaling.types';
+import { SignalingEventTypes } from '../signaling/signaling.events';
+import {
   PresenceInitialEvent,
   PresenceUserOfflineEvent,
   PresenceUserOnlineEvent,
-} from './realtime.types';
-import { CallsService } from '../calls/calls.service';
-import { RealtimeEventTypes } from './realtime.events';
-import { CallEndEvent } from '../signaling/signaling.types';
-import { SignalingEventTypes } from '../signaling/signaling.events';
+} from '../presence/presence.types';
 
 @WebSocketGateway({
   namespace: 'events',
@@ -50,7 +50,7 @@ export class RealtimeGateway
   @WebSocketServer()
   server!: Server;
 
-  async handleConnection(@ConnectedSocket() client: Socket) {
+  async handleConnection(@ConnectedSocket() client: AuthedSocket) {
     const userId = await this.extractUserId(client);
 
     if (!userId) {
@@ -59,6 +59,10 @@ export class RealtimeGateway
     }
 
     await this.presenceService.markSocketOnline(userId, client.id);
+
+    client.data.presenceRefreshInterval = setInterval(() => {
+      void this.presenceService.refreshSocket(userId, client.id);
+    }, 120_000);
 
     const watcherUserIds =
       this.presenceSubscriptionsService.getWatchers(userId);
@@ -73,7 +77,7 @@ export class RealtimeGateway
 
     for (const watcherSocketId of watcherSocketIds) {
       this.server.to(watcherSocketId).emit('message', {
-        type: RealtimeEventTypes.PresenceUserOnline,
+        type: PresenceEventTypes.PresenceUserOnline,
         payload: {
           userId: userId,
         },
@@ -81,7 +85,11 @@ export class RealtimeGateway
     }
   }
 
-  async handleDisconnect(client: Socket) {
+  async handleDisconnect(client: AuthedSocket) {
+    if (client.data.presenceRefreshInterval) {
+      clearInterval(client.data.presenceRefreshInterval);
+    }
+
     const result = await this.presenceService.markSocketOffline(client.id);
 
     if (!result.userId) {
@@ -122,7 +130,7 @@ export class RealtimeGateway
 
       for (const watcherSocketId of watcherSocketIds) {
         this.server.to(watcherSocketId).emit('message', {
-          type: RealtimeEventTypes.PresenceUserOffline,
+          type: PresenceEventTypes.PresenceUserOffline,
           payload: {
             userId,
           },
@@ -165,7 +173,7 @@ export class RealtimeGateway
     }
 
     client.emit('message', {
-      type: RealtimeEventTypes.PresenceInitial,
+      type: PresenceEventTypes.PresenceInitial,
       payload: {
         onlineUserIds: onlineUsers,
       },
