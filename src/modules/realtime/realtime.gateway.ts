@@ -58,19 +58,20 @@ export class RealtimeGateway
       return;
     }
 
-    this.presenceService.markSocketOnline(userId, client.id);
+    await this.presenceService.markSocketOnline(userId, client.id);
 
-    const watchersUserIds =
+    const watcherUserIds =
       this.presenceSubscriptionsService.getWatchers(userId);
-    const watchersSocketIds = watchersUserIds
-      .map((watchersUserId) => {
-        const socketsForUser =
-          this.presenceService.getSocketIdsForUser(watchersUserId);
-        return socketsForUser;
-      })
-      .flat();
 
-    for (const watcherSocketId of watchersSocketIds) {
+    const watcherSocketIds: string[] = [];
+
+    for (const watcherUserId of watcherUserIds) {
+      const socketsForUser =
+        await this.presenceService.getSocketIdsForUser(watcherUserId);
+      watcherSocketIds.push(...socketsForUser);
+    }
+
+    for (const watcherSocketId of watcherSocketIds) {
       this.server.to(watcherSocketId).emit('message', {
         type: RealtimeEventTypes.PresenceUserOnline,
         payload: {
@@ -80,8 +81,8 @@ export class RealtimeGateway
     }
   }
 
-  handleDisconnect(client: Socket) {
-    const result = this.presenceService.markSocketOffline(client.id);
+  async handleDisconnect(client: Socket) {
+    const result = await this.presenceService.markSocketOffline(client.id);
 
     if (!result.userId) {
       return;
@@ -110,15 +111,16 @@ export class RealtimeGateway
     if (result.becameOffline) {
       const watcherUserIds =
         this.presenceSubscriptionsService.getWatchers(userId);
-      const watchersSocketIds = watcherUserIds
-        .map((watchersUserId) => {
-          const socketsForUser =
-            this.presenceService.getSocketIdsForUser(watchersUserId);
-          return socketsForUser;
-        })
-        .flat();
 
-      for (const watcherSocketId of watchersSocketIds) {
+      const watcherSocketIds: string[] = [];
+
+      for (const watcherUserId of watcherUserIds) {
+        const socketsForUser =
+          await this.presenceService.getSocketIdsForUser(watcherUserId);
+        watcherSocketIds.push(...socketsForUser);
+      }
+
+      for (const watcherSocketId of watcherSocketIds) {
         this.server.to(watcherSocketId).emit('message', {
           type: RealtimeEventTypes.PresenceUserOffline,
           payload: {
@@ -137,7 +139,7 @@ export class RealtimeGateway
     }),
   )
   @SubscribeMessage('presence.subscribe')
-  handlePresenceSubscribeMessage(
+  async handlePresenceSubscribeMessage(
     @MessageBody() body: PresenceSubscribeDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
@@ -152,9 +154,15 @@ export class RealtimeGateway
     this.presenceSubscriptionsService.subscribe(userId, body.userIds);
 
     // Get the initial presence state for the subscribed contacts and send it back to the client
-    const onlineUsers = body.userIds.filter((id) =>
-      this.presenceService.isUserOnline(id),
-    );
+    const usersToShow = body.userIds;
+    const onlineUsers: string[] = [];
+
+    for (const id of usersToShow) {
+      const isOnline = await this.presenceService.isUserOnline(id);
+      if (isOnline) {
+        onlineUsers.push(id);
+      }
+    }
 
     client.emit('message', {
       type: RealtimeEventTypes.PresenceInitial,

@@ -110,7 +110,7 @@ export class SignalingGateway {
       peerUserId: result.call.peerUserId,
     });
 
-    const targetSockets = this.presenceService.getSocketIdsForUser(
+    const targetSockets = await this.presenceService.getSocketIdsForUser(
       body.toUserId,
     );
 
@@ -272,7 +272,7 @@ export class SignalingGateway {
     }),
   )
   @SubscribeMessage(SignalingEventTypes.CallCancel)
-  handleCallCancelMessage(
+  async handleCallCancelMessage(
     @MessageBody() body: CallCancelMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
@@ -295,7 +295,7 @@ export class SignalingGateway {
       return;
     }
 
-    const calleeSockets = this.presenceService.getSocketIdsForUser(
+    const calleeSockets = await this.presenceService.getSocketIdsForUser(
       call.peerUserId,
     );
 

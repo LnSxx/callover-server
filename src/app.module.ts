@@ -14,6 +14,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AccountsModule } from './modules/account/account.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { SignalingModule } from './modules/signaling/signaling.module';
+import { RedisModule } from './modules/redis/redis.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { SignalingModule } from './modules/signaling/signaling.module';
     PresenceSubscriptionsModule,
     SessionsModule,
     CallsModule,
+    RedisModule,
   ],
   providers: [
     {
