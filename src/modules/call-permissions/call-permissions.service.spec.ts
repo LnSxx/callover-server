@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { ContactsService } from '../contacts/contacts.service';
 import { CallPermissionsService } from './call-permissions.service';
 
