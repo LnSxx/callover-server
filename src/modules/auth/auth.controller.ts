@@ -9,10 +9,10 @@ import {
   Res,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { SignInDto } from './dto/sign_in.dto';
+import { SignInDto } from './dto/sign-in.dto';
 import type { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
-import { SignInResponseDto } from './dto/sign_in.response.dto';
+import { SignInResponseDto } from './dto/sign-in.response.dto';
 import { RegisterResponseDto } from './dto/register.response.dto';
 import { Public } from '../../common/decorators/public.decorator';
 

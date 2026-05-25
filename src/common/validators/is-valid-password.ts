@@ -3,7 +3,7 @@ import { IsByteLength, IsString, Matches, MinLength } from 'class-validator';
 import {
   getValidationErrorCodeDefaultMessage,
   ValidationErrorCode,
-} from '../errors/validation_error_code';
+} from '../errors/validation-error-code';
 
 export function IsValidPassword() {
   return applyDecorators(

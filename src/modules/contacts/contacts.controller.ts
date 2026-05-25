@@ -11,14 +11,14 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ContactsService } from './contacts.service';
-import { CreateContactDto } from './dto/create_contact.dto';
-import { UpdateContactDto } from './dto/update_contact.dto';
-import { CurrentUser } from '../../common/decorators/current_user.decorator';
-import { FindContactsQueryDto } from './dto/find_contacts_query.dto';
-import { CreateContactResponseDto } from './dto/create_contact_response.dto';
+import { CreateContactDto } from './dto/create-contact.dto';
+import { UpdateContactDto } from './dto/update-contact.dto';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { FindContactsQueryDto } from './dto/find-contacts-query.dto';
+import { CreateContactResponseDto } from './dto/create-contact-response.dto';
 import { ContactDto } from '../../common/domain/contact.dto';
 import { ContactDocument } from './schemas/contact.schema';
-import { FindContactsResponseDto } from './dto/find_contacts_response.dto';
+import { FindContactsResponseDto } from './dto/find-contacts-response.dto';
 import { ApiQuery } from '@nestjs/swagger';
 
 @Controller('contacts')

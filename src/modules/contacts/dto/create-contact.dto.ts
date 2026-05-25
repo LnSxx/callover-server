@@ -9,7 +9,7 @@ import {
 import {
   getValidationErrorCodeDefaultMessage,
   ValidationErrorCode,
-} from '../../../common/errors/validation_error_code';
+} from '../../../common/errors/validation-error-code';
 
 export class CreateContactDto {
   @ApiProperty({ example: '507f1f77bcf86cd799439011' })

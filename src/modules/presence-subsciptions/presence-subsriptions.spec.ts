@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
-import { FakeRedis } from '../redis/fakeRedis';
+import { FakeRedis } from '../redis/fake-redis';
 import { PresenceSubscriptionsService } from './presence-subscriptions.service';
 
 describe('PresenceSubscriptionsService', () => {

@@ -13,12 +13,12 @@ import {
   CallIceCandidateEvent,
   CallOfferEvent,
 } from '../signaling/signaling.types';
-import { CallOfferMessageDto } from '../signaling/dto/callOffer.message.dto';
-import { CallAnswerMessageDto } from '../signaling/dto/callAnswer.message.dto';
-import { CallDeclineMessageDto } from '../signaling/dto/callDecline.message.dto';
-import { CallCancelMessageDto } from '../signaling/dto/callCancel.message.dto';
-import { CallEndMessageDto } from '../signaling/dto/callEnd.message.dto';
-import { CallIceCandidateMessageDto } from '../signaling/dto/callIceCandidate.message.dto';
+import { CallOfferMessageDto } from '../signaling/dto/call-offer.message.dto';
+import { CallAnswerMessageDto } from '../signaling/dto/call-answer.message.dto';
+import { CallDeclineMessageDto } from '../signaling/dto/call-decline.message.dto';
+import { CallCancelMessageDto } from '../signaling/dto/call-cancel.message.dto';
+import { CallEndMessageDto } from '../signaling/dto/call-end.message.dto';
+import { CallIceCandidateMessageDto } from '../signaling/dto/call-ice-candidate.message.dto';
 
 export type SocketData = {
   user?: {

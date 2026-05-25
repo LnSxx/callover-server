@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsValidUsername } from '../../../common/validators/is_valid_username';
+import { IsValidUsername } from '../../../common/validators/is-valid-username';
 import { IsEmail, IsOptional } from 'class-validator';
 
 export class UpdateProfileDto {

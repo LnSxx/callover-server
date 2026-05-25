@@ -1,10 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsValidPassword } from '../../../common/validators/is_valid_password';
+import { IsValidPassword } from '../../../common/validators/is-valid-password';
 import { IsString, MaxLength, MinLength } from 'class-validator';
 import {
   getValidationErrorCodeDefaultMessage,
   ValidationErrorCode,
-} from '../../../common/errors/validation_error_code';
+} from '../../../common/errors/validation-error-code';
 
 export class ChangePasswordDto {
   @ApiProperty({

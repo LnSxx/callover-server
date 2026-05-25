@@ -5,11 +5,11 @@ import {
   Patch,
   NotFoundException,
 } from '@nestjs/common';
-import { CurrentUser } from '../../common/decorators/current_user.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UsersService } from '../users/users.service';
-import { GetMeResponseDto } from './dto/get_me.response.dto';
-import { UpdateProfileDto } from './dto/update_profile.dto';
-import { UpdateProfileResponseDto } from './dto/update_profile.response.dto';
+import { GetMeResponseDto } from './dto/get-me.response.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateProfileResponseDto } from './dto/update-profile.response.dto';
 
 @Controller('profile')
 export class ProfileController {

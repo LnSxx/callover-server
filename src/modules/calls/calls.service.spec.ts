@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
-import { FakeRedis } from '../redis/fakeRedis';
+import { FakeRedis } from '../redis/fake-redis';
 import { CallsService } from './calls.service';
 
 describe('CallsService', () => {

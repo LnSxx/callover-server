@@ -9,10 +9,10 @@ import {
 import { UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { PresenceService } from '../presence/presence.service';
 import { CallsService } from '../calls/calls.service';
-import { CallIceCandidateMessageDto } from './dto/callIceCandidate.message.dto';
-import { CallCancelMessageDto } from './dto/callCancel.message.dto';
-import { CallOfferMessageDto } from './dto/callOffer.message.dto';
-import { CallAnswerMessageDto } from './dto/callAnswer.message.dto';
+import { CallIceCandidateMessageDto } from './dto/call-ice-candidate.message.dto';
+import { CallCancelMessageDto } from './dto/call-cancel.message.dto';
+import { CallOfferMessageDto } from './dto/call-offer.message.dto';
+import { CallAnswerMessageDto } from './dto/call-answer.message.dto';
 import { RealtimeAuthGuard } from '../realtime/realtime.guard';
 import { Server } from 'socket.io';
 import type { AuthedSocket } from '../realtime/realtime.types';
@@ -25,7 +25,7 @@ import {
   CallIceCandidateEvent,
   CallOfferEvent,
 } from './signaling.types';
-import { CallDeclineMessageDto } from './dto/callDecline.message.dto';
+import { CallDeclineMessageDto } from './dto/call-decline.message.dto';
 import { CallPermissionsService } from '../call-permissions/call-permissions.service';
 
 @WebSocketGateway({

@@ -5,8 +5,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import { HttpExceptionFilter } from './common/errors/http_exception.filter';
-import { validationExceptionFactory } from './common/errors/validation_exception.factory';
+import { HttpExceptionFilter } from './common/errors/http-exception.filter';
+import { validationExceptionFactory } from './common/errors/validation-exception.factory';
 import { json } from 'express';
 
 async function bootstrap() {

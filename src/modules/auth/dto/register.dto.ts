@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsValidPassword } from '../../../common/validators/is_valid_password';
-import { IsValidUsername } from '../../../common/validators/is_valid_username';
+import { IsValidPassword } from '../../../common/validators/is-valid-password';
+import { IsValidUsername } from '../../../common/validators/is-valid-username';
 
 export class RegisterDto {
   @ApiProperty({ example: 'calloveruser' })

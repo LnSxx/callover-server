@@ -3,7 +3,7 @@ import { IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import {
   getValidationErrorCodeDefaultMessage,
   ValidationErrorCode,
-} from '../errors/validation_error_code';
+} from '../errors/validation-error-code';
 
 export function IsValidUsername() {
   return applyDecorators(

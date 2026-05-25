@@ -3,7 +3,7 @@ import { IsString, MaxLength, MinLength } from 'class-validator';
 import {
   getValidationErrorCodeDefaultMessage,
   ValidationErrorCode,
-} from '../../../common/errors/validation_error_code';
+} from '../../../common/errors/validation-error-code';
 
 export class SignInDto {
   @ApiProperty({

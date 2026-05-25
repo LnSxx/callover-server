@@ -6,7 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { ApiErrorCode } from './api_error_code';
+import { ApiErrorCode } from './api-error-code';
 
 type ErrorResponse = {
   statusCode: number;
