@@ -16,6 +16,7 @@ import { ProfileModule } from './modules/profile/profile.module';
 import { SignalingModule } from './modules/signaling/signaling.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { CallPermissionsModule } from './modules/call-permissions/call-permissions.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { CallPermissionsModule } from './modules/call-permissions/call-permissio
     CallsModule,
     RedisModule,
     CallPermissionsModule,
+    NotificationsModule,
   ],
   providers: [
     {
