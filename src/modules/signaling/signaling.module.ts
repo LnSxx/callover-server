@@ -5,10 +5,12 @@ import { CallsModule } from '../calls/calls.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { RedisModule } from '../redis/redis.module';
+import { CallPermissionsModule } from '../call-permissions/call-permissions.module';
 
 @Module({
   imports: [
     RealtimeModule,
+    CallPermissionsModule,
     SessionsModule,
     PresenceModule,
     CallsModule,

@@ -25,7 +25,8 @@ import {
   CallIceCandidateEvent,
   CallOfferEvent,
 } from './signaling.types';
-import { CallDeclineMessageDto } from './dto/callDecline.message.sto';
+import { CallDeclineMessageDto } from './dto/callDecline.message.dto';
+import { CallPermissionsService } from '../call-permissions/call-permissions.service';
 
 @WebSocketGateway({
   namespace: 'events',
@@ -39,6 +40,7 @@ import { CallDeclineMessageDto } from './dto/callDecline.message.sto';
 export class SignalingGateway {
   constructor(
     private readonly presenceService: PresenceService,
+    private readonly callPermissionsService: CallPermissionsService,
     private readonly callsService: CallsService,
   ) {}
 
@@ -70,6 +72,16 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
+    const callPermissions =
+      await this.callPermissionsService.getCallPermissions({
+        callerUserId: userId,
+        calleeUserId: body.toUserId,
+      });
+
+    if (!callPermissions.canCall) {
+      return;
+    }
+
     const result = await this.callsService.initiateCall({
       type: body.type,
       fromUserId: userId,
@@ -86,6 +98,7 @@ export class SignalingGateway {
     );
 
     if (targetSockets.length === 0) {
+      await this.callsService.endCall(userId);
       return;
     }
 
@@ -125,6 +138,8 @@ export class SignalingGateway {
       return;
     }
 
+    await client.join(acceptedCall.roomId);
+
     client.to(acceptedCall.roomId).emit('message', {
       type: SignalingEventTypes.CallAnswer,
       payload: {
@@ -132,8 +147,6 @@ export class SignalingGateway {
         sdp: body.sdp,
       },
     } as CallAnswerEvent);
-
-    await client.join(acceptedCall.roomId);
   }
 
   @UsePipes(
@@ -250,7 +263,7 @@ export class SignalingGateway {
       return;
     }
 
-    this.server.to(call.roomId).emit('message', {
+    client.to(call.roomId).emit('message', {
       type: SignalingEventTypes.CallIceCandidate,
       payload: {
         fromUserId,
