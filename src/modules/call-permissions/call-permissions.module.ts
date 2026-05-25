@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { ContactsModule } from '../contacts/contacts.module';
 
-@Module({})
+@Module({
+  imports: [ContactsModule],
+  exports: [],
+})
 export class CallPermissionsModule {}

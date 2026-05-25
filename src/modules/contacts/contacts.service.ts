@@ -174,6 +174,27 @@ export class ContactsService {
     return contact;
   }
 
+  async findContactConnection({
+    ownerId,
+    contactUserId,
+  }: {
+    ownerId: string;
+    contactUserId: string;
+  }): Promise<ContactDocument | null> {
+    const contact = await this.contactModel
+      .findOne({
+        ownerId,
+        contactUserId: contactUserId,
+      })
+      .exec();
+
+    if (!contact) {
+      return null;
+    }
+
+    return contact;
+  }
+
   async update(params: UpdateContactParams): Promise<ContactDocument> {
     const contact = await this.findOne({
       ownerId: params.ownerId,
