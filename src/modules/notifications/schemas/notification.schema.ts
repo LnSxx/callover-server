@@ -41,6 +41,7 @@ export class Notification {
     type: {
       callId: { type: String },
       fromUserId: { type: Types.ObjectId },
+      fromUserName: { type: String },
       callType: { type: String, enum: ['audio', 'video'] },
     },
     default: undefined,
@@ -48,6 +49,7 @@ export class Notification {
   call?: {
     callId?: string;
     fromUserId?: string;
+    fromUserName?: string;
     callType?: 'audio' | 'video';
   };
 
@@ -72,9 +74,6 @@ export class Notification {
     index: { expires: 0 },
   })
   expiresAt!: Date;
-
-  createdAt!: Date;
-  updatedAt!: Date;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
