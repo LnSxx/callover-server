@@ -329,6 +329,56 @@ describe('ContactsService', () => {
     });
   });
 
+  describe('findContactConnection', () => {
+    it('should find contact by ownerId and contactUserId', async () => {
+      contactModelMock.findOne.mockReturnValue(execMock(contact));
+
+      const result = await service.findContactConnection({
+        ownerId,
+        contactUserId,
+      });
+
+      expect(contactModelMock.findOne).toHaveBeenCalledWith({
+        ownerId,
+        contactUserId,
+      });
+
+      expect(result).toBe(contact);
+    });
+
+    it('should return null if contact connection was not found', async () => {
+      contactModelMock.findOne.mockReturnValue(execMock(null));
+
+      const result = await service.findContactConnection({
+        ownerId,
+        contactUserId,
+      });
+
+      expect(contactModelMock.findOne).toHaveBeenCalledWith({
+        ownerId,
+        contactUserId,
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('should not validate contactUserId', async () => {
+      contactModelMock.findOne.mockReturnValue(execMock(null));
+
+      const result = await service.findContactConnection({
+        ownerId,
+        contactUserId: 'not-object-id',
+      });
+
+      expect(contactModelMock.findOne).toHaveBeenCalledWith({
+        ownerId,
+        contactUserId: 'not-object-id',
+      });
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('update', () => {
     it('should update changed fields only', async () => {
       contactModelMock.findOne.mockReturnValue(execMock(contact));
