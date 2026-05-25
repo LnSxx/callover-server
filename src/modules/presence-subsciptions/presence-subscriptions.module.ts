@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PresenceSubscriptionsService } from './presenceSubscriptions.service';
+import { PresenceSubscriptionsService } from './presence-subscriptions.service';
 import { RedisModule } from '../redis/redis.module';
 
 @Module({

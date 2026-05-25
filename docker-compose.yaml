@@ -11,7 +11,7 @@ services:
     container_name: callover-redis
     image: redis:8.6
     ports:
-      - '6379:6379'
+      - '6380:6380'
 
 volumes:
   mongo-data:

@@ -6,7 +6,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { PresenceModule } from './modules/presence/presence.module';
-import { PresenceSubscriptionsModule } from './modules/presenceSubsciptions/presenceSubscriptions.module';
+import { PresenceSubscriptionsModule } from './modules/presence-subsciptions/presence-subscriptions.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { CallsModule } from './modules/calls/calls.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
@@ -15,6 +15,7 @@ import { AccountsModule } from './modules/account/account.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { SignalingModule } from './modules/signaling/signaling.module';
 import { RedisModule } from './modules/redis/redis.module';
+import { CallPermissionsModule } from './modules/call-permissions/call-permissions.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { RedisModule } from './modules/redis/redis.module';
     SessionsModule,
     CallsModule,
     RedisModule,
+    CallPermissionsModule,
   ],
   providers: [
     {

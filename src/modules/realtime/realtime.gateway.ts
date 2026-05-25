@@ -15,7 +15,7 @@ import { Socket } from 'socket.io';
 import { extractSignedSessionId } from './realtime.utils';
 import { PresenceService } from '../presence/presence.service';
 import { SessionsService } from '../sessions/sessions.service';
-import { PresenceSubscriptionsService } from '../presenceSubsciptions/presenceSubscriptions.service';
+import { PresenceSubscriptionsService } from '../presence-subsciptions/presence-subscriptions.service';
 import { PresenceSubscribeDto } from './dto/presence.subscribe.dto';
 import type { AuthedSocket } from './realtime.types';
 import { CallsService } from '../calls/calls.service';
