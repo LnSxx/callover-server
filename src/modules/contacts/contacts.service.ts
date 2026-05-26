@@ -8,6 +8,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Contact, ContactDocument } from './schemas/contact.schema';
 import { Model, Types } from 'mongoose';
+import { UsersService } from '../users/users.service';
 
 type CreateContactParams = {
   ownerId: string;
@@ -50,6 +51,7 @@ export class ContactsService {
   constructor(
     @InjectModel(Contact.name)
     private readonly contactModel: Model<ContactDocument>,
+    private readonly usersService: UsersService,
   ) {}
 
   async create(params: CreateContactParams): Promise<ContactDocument> {
@@ -60,6 +62,13 @@ export class ContactsService {
     if (params.ownerId === params.contactUserId) {
       throw new BadRequestException('Cannot create contact referencing owner');
     }
+
+    const user = await this.usersService.findById(params.contactUserId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
     try {
       return await this.contactModel.create({
         ownerId: params.ownerId,
