@@ -1,7 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
-export type NotificationDocument = HydratedDocument<Notification>;
+export type NotificationDocument = HydratedDocument<Notification> & {
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export type NotificationType = 'missed_call' | 'muted_call' | 'service_message';
 
@@ -12,7 +15,7 @@ export type NotificationStatus = 'unread' | 'read';
 })
 export class Notification {
   @Prop({ type: Types.ObjectId, required: true, index: true })
-  userId!: string;
+  userId!: Types.ObjectId;
 
   @Prop({
     type: String,
@@ -47,10 +50,10 @@ export class Notification {
     default: undefined,
   })
   call?: {
-    callId?: string;
-    fromUserId?: string;
+    callId: string;
+    fromUserId: Types.ObjectId;
     fromUserName?: string;
-    callType?: 'audio' | 'video';
+    callType: 'audio' | 'video';
   };
 
   @Prop({

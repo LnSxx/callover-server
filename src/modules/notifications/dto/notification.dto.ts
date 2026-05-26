@@ -2,8 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type {
   NotificationStatus,
   NotificationType,
-} from '../../modules/notifications/schemas/notification.schema';
-import type { CallType } from '../../modules/calls/calls.types';
+} from '../schemas/notification.schema';
+import type { CallType } from '../../calls/calls.types';
 
 export class NotificationDto {
   @ApiProperty({ example: 'notification-id' })
@@ -51,8 +51,8 @@ export class NotificationDto {
     payload?: Record<string, unknown>;
   };
 
-  @ApiProperty({ example: '2026-04-29T10:00:00.000Z' })
-  readAt!: string;
+  @ApiPropertyOptional({ example: '2026-04-29T10:00:00.000Z' })
+  readAt?: string;
 
   @ApiProperty({ example: '2026-04-29T10:00:00.000Z' })
   expiresAt!: string;
