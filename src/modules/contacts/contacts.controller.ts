@@ -16,7 +16,7 @@ import { UpdateContactDto } from './dto/update-contact.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { FindContactsQueryDto } from './dto/find-contacts-query.dto';
 import { CreateContactResponseDto } from './dto/create-contact-response.dto';
-import { ContactDto } from '../../common/domain/contact.dto';
+import { ContactDto } from './dto/contact.dto';
 import { ContactDocument } from './schemas/contact.schema';
 import { FindContactsResponseDto } from './dto/find-contacts-response.dto';
 import { ApiQuery } from '@nestjs/swagger';

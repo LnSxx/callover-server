@@ -1,3 +1,3 @@
-import { ContactDto } from '../../../common/domain/contact.dto';
+import { ContactDto } from './contact.dto';
 
 export class CreateContactResponseDto extends ContactDto {}

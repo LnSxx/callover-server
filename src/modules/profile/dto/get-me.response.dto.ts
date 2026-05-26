@@ -1,3 +1,3 @@
-import { UserDto } from '../../../common/domain/user.dto';
+import { UserDto } from '../../users/dto/user.dto';
 
 export class GetMeResponseDto extends UserDto {}
