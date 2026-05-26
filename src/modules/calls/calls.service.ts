@@ -202,4 +202,31 @@ export class CallsService {
         : undefined,
     };
   }
+
+  async getCurrentRingingCall(userId: string): Promise<Call | null> {
+    const rawCall = await this.redis.get(this.userCallKey(userId));
+
+    if (!rawCall) {
+      return null;
+    }
+
+    const parsedCall = JSON.parse(rawCall) as Omit<
+      Call,
+      'createdAt' | 'acceptedAt'
+    > & {
+      createdAt: string;
+      acceptedAt?: string;
+    };
+
+    if (parsedCall.status === 'ringing') {
+      return {
+        ...parsedCall,
+        createdAt: new Date(parsedCall.createdAt),
+        acceptedAt: parsedCall.acceptedAt
+          ? new Date(parsedCall.acceptedAt)
+          : undefined,
+      };
+    }
+    return null;
+  }
 }

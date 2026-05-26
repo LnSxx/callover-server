@@ -3,17 +3,17 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CallsService } from './calls.service';
 import { Call } from './entities/call';
 import { CallDto } from './dto/call.dto';
-import { GetCurrentCallResponseDto } from './dto/get-current-call-response.dto';
+import { GetCurrentRingingCallResponseDto } from './dto/get-current-ringing-call-response.dto';
 
 @Controller('calls')
 export class CallsController {
   constructor(private readonly callsService: CallsService) {}
 
   @Get('current')
-  async getCurrentCall(
+  async getCurrentRingingCall(
     @CurrentUser() user: { id: string },
-  ): Promise<GetCurrentCallResponseDto> {
-    const call = await this.callsService.getCall(user.id);
+  ): Promise<GetCurrentRingingCallResponseDto> {
+    const call = await this.callsService.getCurrentRingingCall(user.id);
 
     return {
       call: call ? this.toCallDto(call) : null,
