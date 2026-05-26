@@ -9,6 +9,7 @@ import type {
   GetNotificationsParams,
   GetNotificationsResult,
 } from './notifications.types';
+import { CallType } from '../calls/calls.types';
 
 @Injectable()
 export class NotificationsService {
@@ -16,6 +17,8 @@ export class NotificationsService {
     @InjectModel(Notification.name)
     private readonly notificationModel: Model<NotificationDocument>,
   ) {}
+
+  private readonly defaultTtlDays = 30;
 
   async get(params: GetNotificationsParams): Promise<GetNotificationsResult> {
     const { userId, limit, offset, status } = params;
@@ -46,6 +49,86 @@ export class NotificationsService {
       count: data.length,
       total,
     };
+  }
+
+  async createMissedCallNotification(params: {
+    userId: string;
+    callId: string;
+    fromUserId: string;
+    fromUserName?: string;
+    callType: CallType;
+  }): Promise<void> {
+    await this.notificationModel.create({
+      userId: params.userId,
+      type: 'missed_call',
+      status: 'unread',
+      title: `Missed ${params.callType} call`,
+      body: params.fromUserName
+        ? `Missed ${params.callType} call from ${params.fromUserName}`
+        : undefined,
+      call: {
+        callId: params.callId,
+        fromUserId: params.fromUserId,
+        fromUserName: params.fromUserName,
+        callType: params.callType,
+      },
+      expiresAt: this.buildExpiresAt(),
+    });
+  }
+
+  async createMutedCallNotification(params: {
+    userId: string;
+    callId: string;
+    fromUserId: string;
+    fromUserName?: string;
+    callType: CallType;
+  }): Promise<void> {
+    await this.notificationModel.create({
+      userId: params.userId,
+      type: 'muted_call',
+      status: 'unread',
+      title: `Muted ${params.callType} call`,
+      body: params.fromUserName
+        ? `Muted ${params.callType} call from ${params.fromUserName}`
+        : undefined,
+      call: {
+        callId: params.callId,
+        fromUserId: params.fromUserId,
+        fromUserName: params.fromUserName,
+        callType: params.callType,
+      },
+      expiresAt: this.buildExpiresAt(),
+    });
+  }
+
+  async createServiceNotification(params: {
+    userId: string;
+    title: string;
+    body?: string;
+    code?: string;
+    payload?: Record<string, unknown>;
+    expiresAt?: Date;
+  }): Promise<void> {
+    await this.notificationModel.create({
+      userId: params.userId,
+      type: 'service_message',
+      status: 'unread',
+      title: params.title,
+      body: params.body,
+      service: {
+        code: params.code,
+        payload: params.payload,
+      },
+      expiresAt: params.expiresAt ?? this.buildExpiresAt(),
+    });
+  }
+
+  private buildExpiresAt(): Date {
+    const expiresAt = new Date();
+
+    expiresAt.setDate(expiresAt.getDate() + this.defaultTtlDays);
+
+    return expiresAt;
   }
 
   async markAsRead(userId: string, notificationIds: string[]): Promise<void> {
