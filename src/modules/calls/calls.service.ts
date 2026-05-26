@@ -2,7 +2,8 @@ import { randomUUID } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { RedisClientType } from 'redis';
 import { REDIS_CLIENT } from '../redis/redis.provider';
-import type { Call, CallInitResult, CallType } from './calls.types';
+import type { CallInitResult } from './calls.types';
+import { Call, CallType } from './entities/call';
 
 @Injectable()
 export class CallsService {

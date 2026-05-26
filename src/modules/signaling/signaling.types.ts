@@ -1,4 +1,4 @@
-import { CallType } from '../calls/calls.types';
+import { CallType } from '../calls/entities/call';
 import { SignalingEventTypes } from './signaling.events';
 
 export type CallOfferEvent = {

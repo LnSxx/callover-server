@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import { CallType } from '../../calls/entities/call';
 
 export type NotificationDocument = HydratedDocument<Notification> & {
   createdAt: Date;
@@ -53,7 +54,7 @@ export class Notification {
     callId: string;
     fromUserId: Types.ObjectId;
     fromUserName?: string;
-    callType: 'audio' | 'video';
+    callType: CallType;
   };
 
   @Prop({

@@ -3,7 +3,7 @@ import type {
   NotificationStatus,
   NotificationType,
 } from '../schemas/notification.schema';
-import type { CallType } from '../../calls/calls.types';
+import type { CallType } from '../../calls/entities/call';
 
 export class NotificationDto {
   @ApiProperty({ example: 'notification-id' })

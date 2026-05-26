@@ -9,7 +9,7 @@ import type {
   GetNotificationsParams,
   GetNotificationsResult,
 } from './notifications.types';
-import { CallType } from '../calls/calls.types';
+import { CallType } from '../calls/entities/call';
 
 @Injectable()
 export class NotificationsService {
