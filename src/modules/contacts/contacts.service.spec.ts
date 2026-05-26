@@ -9,6 +9,8 @@ import { getModelToken } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 import { ContactsService } from './contacts.service';
 import { Contact } from './schemas/contact.schema';
+import { UsersService } from '../users/users.service';
+import { User } from '../users/schemas/user.schema';
 
 describe('ContactsService', () => {
   let service: ContactsService;
@@ -19,6 +21,10 @@ describe('ContactsService', () => {
     findOne: jest.fn(),
     findOneAndUpdate: jest.fn(),
     findOneAndDelete: jest.fn(),
+  };
+
+  const userModelMock = {
+    findById: jest.fn(),
   };
 
   const execMock = (value: unknown) => ({
@@ -48,15 +54,25 @@ describe('ContactsService', () => {
     updatedAt: new Date('2026-04-01T10:00:00.000Z'),
   };
 
+  const user = {
+    _id: new Types.ObjectId(contactUserId),
+    username: 'catherine_the_great',
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        UsersService,
         ContactsService,
         {
           provide: getModelToken(Contact.name),
           useValue: contactModelMock,
+        },
+        {
+          provide: getModelToken(User.name),
+          useValue: userModelMock,
         },
       ],
     }).compile();
@@ -70,26 +86,43 @@ describe('ContactsService', () => {
 
   describe('create', () => {
     it('should create contact', async () => {
+      userModelMock.findById.mockReturnValue(execMock(user));
       contactModelMock.create.mockResolvedValue(contact);
 
       const result = await service.create({
         ownerId,
         contactUserId,
-        alias: ' Ivan ',
-        note: ' Best friend ',
+        alias: ' Catherine the Great ',
+        note: ' Empress of Russia ',
       });
+
+      expect(userModelMock.findById).toHaveBeenCalledWith(contactUserId);
 
       expect(contactModelMock.create).toHaveBeenCalledWith({
         ownerId,
         contactUserId,
-        alias: 'Ivan',
-        note: 'Best friend',
+        alias: 'Catherine the Great',
+        note: 'Empress of Russia',
         isFavourite: false,
         isBlocked: false,
         isMuted: false,
       });
 
       expect(result).toBe(contact);
+    });
+
+    it('should throw NotFoundException if contact user does not exist', async () => {
+      userModelMock.findById.mockReturnValue(execMock(null));
+
+      await expect(
+        service.create({
+          ownerId,
+          contactUserId,
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(userModelMock.findById).toHaveBeenCalledWith(contactUserId);
+      expect(contactModelMock.create).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException if contactUserId is invalid', async () => {
@@ -115,6 +148,7 @@ describe('ContactsService', () => {
     });
 
     it('should throw ConflictException on duplicate contact', async () => {
+      userModelMock.findById.mockReturnValue(execMock(user));
       contactModelMock.create.mockRejectedValue({ code: 11000 });
 
       await expect(
@@ -126,6 +160,7 @@ describe('ContactsService', () => {
     });
 
     it('should throw InternalServerErrorException on unknown mongo error', async () => {
+      userModelMock.findById.mockReturnValue(execMock(user));
       contactModelMock.create.mockRejectedValue(new Error('mongo failed'));
 
       await expect(

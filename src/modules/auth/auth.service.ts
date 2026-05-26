@@ -7,12 +7,14 @@ import {
 } from '@nestjs/common';
 import { SessionsService } from '../sessions/sessions.service';
 import { UsersService } from '../users/users.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private sessionsService: SessionsService,
-    private usersService: UsersService,
+    private readonly sessionsService: SessionsService,
+    private readonly usersService: UsersService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async signIn({
@@ -114,6 +116,14 @@ export class AuthService {
       await this.usersService.delete(newUser.id);
       throw new InternalServerErrorException('Failed to create session');
     }
+
+    await this.notificationsService.createServiceNotification({
+      userId: newUser.id,
+      title: 'Welcome to Callover!',
+      payload: {
+        body: 'Thank you for registering. We hope you enjoy using Callover.',
+      },
+    });
 
     return {
       id: newUser.id,
