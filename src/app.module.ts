@@ -17,6 +17,7 @@ import { SignalingModule } from './modules/signaling/signaling.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { CallPermissionsModule } from './modules/call-permissions/call-permissions.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { CallLogsModule } from './modules/call-logs/call-logs.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     RedisModule,
     CallPermissionsModule,
     NotificationsModule,
+    CallLogsModule,
   ],
   providers: [
     {
