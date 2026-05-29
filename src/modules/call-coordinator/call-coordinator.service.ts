@@ -65,14 +65,14 @@ export class CallCoordinatorService {
   }
 
   async acceptCall(params: CallAcceptParams): Promise<CallAcceptResult> {
-    return await this.callLifecycleService.registerCallAccept({
+    return this.callLifecycleService.registerCallAccept({
       calleeUserId: params.calleeUserId,
       calleeSocketId: params.calleeSocketId,
     });
   }
 
   async declineCall(calleeUserId: string): Promise<CallDeclineResult> {
-    return await this.callLifecycleService.registerCallDecline(calleeUserId);
+    return this.callLifecycleService.registerCallDecline(calleeUserId);
   }
 
   async cancelCall(callerUserId: string): Promise<CA_CancelCall_Result> {
@@ -97,7 +97,7 @@ export class CallCoordinatorService {
   }
 
   async endCall(userId: string): Promise<CallEndResult> {
-    return await this.callLifecycleService.registerCallEnd(userId);
+    return this.callLifecycleService.registerCallEnd(userId);
   }
 
   async getCallRoomIdForUserIfHasActiveCall(

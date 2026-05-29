@@ -13,7 +13,7 @@ export class AccountsService {
     isDeleted: boolean;
   }> {
     await this.sessionsService.deleteAllSessionsForUserId(userId);
-    return await this.usersService.delete(userId);
+    return this.usersService.delete(userId);
   }
 
   async changePassword(params: {

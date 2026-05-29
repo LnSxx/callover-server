@@ -70,7 +70,7 @@ export class ContactsService {
     }
 
     try {
-      return await this.contactModel.create({
+      return this.contactModel.create({
         ownerId: params.ownerId,
         contactUserId: params.contactUserId,
         alias: params.alias?.trim(),

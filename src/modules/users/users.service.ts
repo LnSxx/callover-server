@@ -32,7 +32,7 @@ export class UsersService {
       const usernameNormalized = this.normalizeUsername(username);
       const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 
-      return await this.userModel.create({
+      return this.userModel.create({
         username: usernameNormalized,
         passwordHash,
       });
@@ -74,7 +74,7 @@ export class UsersService {
     }
 
     try {
-      return await this.userModel
+      return this.userModel
         .findByIdAndUpdate(
           id,
           {

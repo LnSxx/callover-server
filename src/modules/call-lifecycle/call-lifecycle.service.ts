@@ -22,7 +22,7 @@ export class CallLifecycleService {
   ) {}
 
   async tryStartCall(params: CallInitParams): Promise<CallInitResult> {
-    return await this.callsService.initiateCall(params);
+    return this.callsService.initiateCall(params);
   }
 
   async registerCallAccept(
@@ -30,7 +30,7 @@ export class CallLifecycleService {
   ): Promise<CallAcceptResult> {
     const { calleeUserId, calleeSocketId } = params;
 
-    return await this.callsService.acceptCall({
+    return this.callsService.acceptCall({
       calleeUserId: calleeUserId,
       calleeSocketId: calleeSocketId,
     });
@@ -188,6 +188,6 @@ export class CallLifecycleService {
   }
 
   async getActiveCall(userId: string): Promise<Call | null> {
-    return await this.callsService.getCall(userId);
+    return this.callsService.getCall(userId);
   }
 }
