@@ -1,4 +1,4 @@
-import { CallType } from '../../calls/entities/call';
+import { CallDirection, CallType } from '../../../entities/call';
 import { CallLogDocument } from '../schemas/call-log.schema';
 
 export type CallLogStatus =
@@ -8,8 +8,6 @@ export type CallLogStatus =
   | 'cancelled'
   | 'no_answer'
   | 'failed';
-
-export type CallDirection = 'incoming' | 'outgoing';
 
 export type GetCallLogsParams = {
   userId: string;

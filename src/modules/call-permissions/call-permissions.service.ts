@@ -17,6 +17,13 @@ export class CallPermissionsService {
     callerUserId: string;
     calleeUserId: string;
   }): Promise<CallPermissions> {
+    if (callerUserId === calleeUserId) {
+      return {
+        canCall: false,
+        shouldWakeDevice: false,
+      };
+    }
+
     const callerContact = await this.contactsService.findContactConnection({
       ownerId: calleeUserId,
       contactUserId: callerUserId,

@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import type { CallType } from '../../calls/entities/call';
-import type { CallDirection, CallLogStatus } from '../types/call-logs.types';
+import type { CallDirection, CallType } from '../../../entities/call';
+import type { CallLogStatus } from '../types/call-logs.types';
 
 export type CallLogDocument = HydratedDocument<CallLog> & {
   createdAt: Date;

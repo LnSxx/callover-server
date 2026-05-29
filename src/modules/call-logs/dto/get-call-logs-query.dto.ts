@@ -9,7 +9,7 @@ import {
   Min,
 } from 'class-validator';
 import type { CallDirection, CallLogStatus } from '../types/call-logs.types';
-import type { CallType } from '../../calls/entities/call';
+import type { CallType } from '../../../entities/call';
 
 export class GetCallLogsQueryDto {
   @ApiPropertyOptional({

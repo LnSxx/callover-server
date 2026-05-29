@@ -1,7 +1,7 @@
 import { Body, Controller, Get } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CallsService } from './calls.service';
-import { Call } from './entities/call';
+import { Call } from '../../entities/call';
 import { CallDto } from './dto/call.dto';
 import { GetCurrentRingingCallResponseDto } from './dto/get-current-ringing-call-response.dto';
 

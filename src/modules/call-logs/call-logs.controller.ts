@@ -7,7 +7,7 @@ import { GetCallLogsResponseDto } from './dto/get-call-logs-response.dto';
 import { CallLogDocument } from './schemas/call-log.schema';
 import { CallLogDto } from './dto/call-log.dto';
 import { CallDirection, CallLogStatus } from './types/call-logs.types';
-import { CallType } from '../calls/entities/call';
+import { CallType } from '../../entities/call';
 
 @Controller('call-logs')
 export class CallLogsController {

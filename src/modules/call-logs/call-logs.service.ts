@@ -3,12 +3,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { CallLog, CallLogDocument } from './schemas/call-log.schema';
 import { Model, Types } from 'mongoose';
 import type {
-  CallDirection,
   CallLogStatus,
   GetCallLogsParams,
   GetCallLogsResult,
 } from './types/call-logs.types';
-import { CallType } from '../calls/entities/call';
+import { CallDirection, CallType } from '../../entities/call';
 
 @Injectable()
 export class CallLogsService {

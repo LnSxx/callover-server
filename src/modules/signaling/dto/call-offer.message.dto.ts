@@ -1,5 +1,5 @@
 import { IsIn, IsMongoId, IsString } from 'class-validator';
-import type { CallType } from '../../calls/entities/call';
+import type { CallType } from '../../../entities/call';
 
 export class CallOfferMessageDto {
   @IsMongoId()

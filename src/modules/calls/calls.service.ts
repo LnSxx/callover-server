@@ -2,8 +2,8 @@ import { randomUUID } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { RedisClientType } from 'redis';
 import { REDIS_CLIENT } from '../redis/redis.provider';
-import type { CallInitResult } from './calls.types';
-import { Call, CallType } from './entities/call';
+import type { CallEndResult, CallInitResult } from './calls.types';
+import { Call, CallType } from '../../entities/call';
 
 @Injectable()
 export class CallsService {
@@ -37,7 +37,7 @@ export class CallsService {
     if (fromUserId === toUserId) {
       return {
         success: false,
-        reason: 'self_call',
+        reason: 'self-call',
       };
     }
 
@@ -46,7 +46,7 @@ export class CallsService {
     if (callerBusy) {
       return {
         success: false,
-        reason: 'caller_busy',
+        reason: 'caller-busy',
       };
     }
 
@@ -55,7 +55,7 @@ export class CallsService {
     if (calleeBusy) {
       return {
         success: false,
-        reason: 'callee_busy',
+        reason: 'callee-busy',
       };
     }
 
@@ -64,6 +64,7 @@ export class CallsService {
 
     const callerCall: Call = {
       type,
+      direction: 'outgoing',
       userId: fromUserId,
       socketId,
       peerUserId: toUserId,
@@ -74,6 +75,7 @@ export class CallsService {
 
     const calleeCall: Call = {
       type,
+      direction: 'incoming',
       userId: toUserId,
       peerUserId: fromUserId,
       peerSocketId: socketId,
@@ -151,14 +153,22 @@ export class CallsService {
     return updatedCall;
   }
 
-  async endCall(userId: string): Promise<{
-    ended: boolean;
-  }> {
+  async endCall(userId: string): Promise<CallEndResult> {
     const call = await this.getCall(userId);
 
     if (!call) {
       return {
         ended: false,
+        reason: 'not-found',
+      };
+    }
+
+    const peerCall = await this.getCall(call.peerUserId);
+
+    if (!peerCall) {
+      return {
+        ended: false,
+        reason: 'not-found',
       };
     }
 
@@ -176,6 +186,8 @@ export class CallsService {
 
     return {
       ended: true,
+      endedCallerCall: call.direction === 'outgoing' ? call : peerCall,
+      endedCalleeCall: call.direction === 'incoming' ? call : peerCall,
     };
   }
 

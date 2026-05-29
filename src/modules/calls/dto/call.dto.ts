@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { CallStatus, CallType } from '../entities/call';
+import type { CallStatus, CallType } from '../../../entities/call';
 
 export class CallDto {
   @ApiProperty({

@@ -7,8 +7,6 @@ import {
   WsException,
 } from '@nestjs/websockets';
 import { UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
-import { PresenceService } from '../presence/presence.service';
-import { CallsService } from '../calls/calls.service';
 import { CallIceCandidateMessageDto } from './dto/call-ice-candidate.message.dto';
 import { CallCancelMessageDto } from './dto/call-cancel.message.dto';
 import { CallOfferMessageDto } from './dto/call-offer.message.dto';
@@ -26,7 +24,7 @@ import {
   CallOfferEvent,
 } from './signaling.types';
 import { CallDeclineMessageDto } from './dto/call-decline.message.dto';
-import { CallPermissionsService } from '../call-permissions/call-permissions.service';
+import { CallAdministratorService } from '../call-administrator/call-administrator.service';
 
 @WebSocketGateway({
   namespace: 'events',
@@ -39,9 +37,7 @@ import { CallPermissionsService } from '../call-permissions/call-permissions.ser
 @UseGuards(RealtimeAuthGuard)
 export class SignalingGateway {
   constructor(
-    private readonly presenceService: PresenceService,
-    private readonly callPermissionsService: CallPermissionsService,
-    private readonly callsService: CallsService,
+    private readonly callAdministratorService: CallAdministratorService,
   ) {}
 
   @WebSocketServer()
@@ -72,39 +68,20 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const callPermissions =
-      await this.callPermissionsService.getCallPermissions({
-        callerUserId: userId,
-        calleeUserId: body.toUserId,
-      });
-
-    if (!callPermissions.canCall) {
-      return;
-    }
-
-    const result = await this.callsService.initiateCall({
+    const callInitResult = await this.callAdministratorService.tryInitiateCall({
+      callerUserId: userId,
+      calleeUserId: body.toUserId,
+      callerSocketId: client.id,
       type: body.type,
-      fromUserId: userId,
-      toUserId: body.toUserId,
-      socketId: client.id,
     });
 
-    if (!result.success) {
+    if (!callInitResult.success) {
       return;
     }
 
-    const targetSockets = await this.presenceService.getSocketIdsForUser(
-      body.toUserId,
-    );
+    await client.join(callInitResult.callRoomId);
 
-    if (targetSockets.length === 0) {
-      await this.callsService.endCall(userId);
-      return;
-    }
-
-    await client.join(result.call.roomId);
-
-    for (const socketId of targetSockets) {
+    for (const socketId of callInitResult.peerSockets) {
       this.server.to(socketId).emit('message', {
         type: SignalingEventTypes.CallOffer,
         payload: {
@@ -129,9 +106,9 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const acceptedCall = await this.callsService.acceptCall({
-      userId: userId,
-      socketId: client.id,
+    const acceptedCall = await this.callAdministratorService.acceptCall({
+      calleeUserId: userId,
+      calleeSocketId: client.id,
     });
 
     if (!acceptedCall) {
@@ -162,22 +139,20 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const call = await this.callsService.getCall(userId);
+    const endCallResult = await this.callAdministratorService.declineCall({
+      calleeUserId: userId,
+    });
 
-    if (!call) {
+    if (!endCallResult.declined) {
       return;
     }
 
-    client.to(call.roomId).emit('message', {
+    client.to(endCallResult.callRoomId).emit('message', {
       type: SignalingEventTypes.CallDecline,
       payload: {
         fromUserId: userId,
       },
     } as CallDeclineEvent);
-
-    await this.callsService.endCall(userId);
-
-    return;
   }
 
   @UsePipes(
@@ -193,17 +168,15 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const call = await this.callsService.getCall(userId);
+    const endCallResult = await this.callAdministratorService.cancelCall({
+      callerUserId: userId,
+    });
 
-    if (!call) {
+    if (!endCallResult.cancelled) {
       return;
     }
 
-    const calleeSockets = await this.presenceService.getSocketIdsForUser(
-      call.peerUserId,
-    );
-
-    for (const socketId of calleeSockets) {
+    for (const socketId of endCallResult.peerSockets) {
       this.server.to(socketId).emit('message', {
         type: SignalingEventTypes.CallCancel,
         payload: {
@@ -211,8 +184,6 @@ export class SignalingGateway {
         },
       } as CallCancelEvent);
     }
-
-    await this.callsService.endCall(userId);
   }
 
   @UsePipes(
@@ -225,23 +196,23 @@ export class SignalingGateway {
     @MessageBody() body: CallCancelMessageDto,
     @ConnectedSocket() client: AuthedSocket,
   ) {
-    const fromUserId = this.getUserIdOrDisconnect(client);
-    if (!fromUserId) return;
+    const userId = this.getUserIdOrDisconnect(client);
+    if (!userId) return;
 
-    const call = await this.callsService.getCall(fromUserId);
+    const endCallResult = await this.callAdministratorService.endCall({
+      userId: userId,
+    });
 
-    if (!call) {
+    if (!endCallResult.ended) {
       return;
     }
 
-    client.to(call.roomId).emit('message', {
+    client.to(endCallResult.callRoomId).emit('message', {
       type: SignalingEventTypes.CallEnd,
       payload: {
-        fromUserId,
+        fromUserId: userId,
       },
     } as CallEndEvent);
-
-    await this.callsService.endCall(fromUserId);
   }
 
   @UsePipes(
@@ -257,13 +228,16 @@ export class SignalingGateway {
     const fromUserId = this.getUserIdOrDisconnect(client);
     if (!fromUserId) return;
 
-    const call = await this.callsService.getCall(fromUserId);
+    const activeCallRoomId =
+      await this.callAdministratorService.getCallRoomIdForUserIfHasActiveCall(
+        fromUserId,
+      );
 
-    if (!call) {
+    if (!activeCallRoomId) {
       return;
     }
 
-    client.to(call.roomId).emit('message', {
+    client.to(activeCallRoomId).emit('message', {
       type: SignalingEventTypes.CallIceCandidate,
       payload: {
         fromUserId,
