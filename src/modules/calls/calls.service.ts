@@ -187,54 +187,47 @@ export class CallsService {
   }
 
   async declineCall(calleeUserId: string): Promise<CallDeclineResult> {
-    const call = await this.getCall(calleeUserId);
+    const calleeCall = await this.getCall(calleeUserId);
 
-    if (!call) {
+    if (!calleeCall) {
       return {
         declined: false,
         reason: 'not-found',
       };
     }
 
-    const peerCall = await this.getCall(call.peerUserId);
+    const callerCall = await this.getCall(calleeCall.peerUserId);
 
-    if (!peerCall) {
+    if (!callerCall) {
       return {
         declined: false,
         reason: 'not-found',
       };
     }
 
-    if (call.direction !== 'incoming' || peerCall.direction !== 'outgoing') {
+    if (
+      calleeCall.direction !== 'incoming' ||
+      callerCall.direction !== 'outgoing'
+    ) {
       return {
         declined: false,
         reason: 'unexpected-peer',
       };
     }
 
-    if (call.status !== 'ringing' || peerCall.status !== 'calling') {
+    if (calleeCall.status !== 'ringing' || callerCall.status !== 'calling') {
       return {
         declined: false,
         reason: 'invalid-status',
       };
     }
 
-    const roomUsers = await this.redis.sMembers(this.roomUsersKey(call.roomId));
-
-    const multi = this.redis.multi();
-
-    for (const roomUserId of roomUsers) {
-      multi.del(this.userCallKey(roomUserId));
-    }
-
-    multi.del(this.roomUsersKey(call.roomId));
-
-    await multi.exec();
+    await this.deleteCallRoom(calleeCall.roomId);
 
     return {
       declined: true,
-      declinedCalleeCall: call,
-      declinedCallerCall: peerCall,
+      declinedCalleeCall: calleeCall,
+      declinedCallerCall: callerCall,
     };
   }
 
@@ -274,19 +267,7 @@ export class CallsService {
       };
     }
 
-    const roomUsers = await this.redis.sMembers(
-      this.roomUsersKey(callerCall.roomId),
-    );
-
-    const multi = this.redis.multi();
-
-    for (const roomUserId of roomUsers) {
-      multi.del(this.userCallKey(roomUserId));
-    }
-
-    multi.del(this.roomUsersKey(callerCall.roomId));
-
-    await multi.exec();
+    await this.deleteCallRoom(callerCall.roomId);
 
     return {
       cancelled: true,
@@ -321,17 +302,7 @@ export class CallsService {
       };
     }
 
-    const roomUsers = await this.redis.sMembers(this.roomUsersKey(call.roomId));
-
-    const multi = this.redis.multi();
-
-    for (const roomUserId of roomUsers) {
-      multi.del(this.userCallKey(roomUserId));
-    }
-
-    multi.del(this.roomUsersKey(call.roomId));
-
-    await multi.exec();
+    await this.deleteCallRoom(call.roomId);
 
     return {
       ended: true,
@@ -389,5 +360,19 @@ export class CallsService {
       };
     }
     return null;
+  }
+
+  private async deleteCallRoom(roomId: string): Promise<void> {
+    const roomUsers = await this.redis.sMembers(this.roomUsersKey(roomId));
+
+    const multi = this.redis.multi();
+
+    for (const roomUserId of roomUsers) {
+      multi.del(this.userCallKey(roomUserId));
+    }
+
+    multi.del(this.roomUsersKey(roomId));
+
+    await multi.exec();
   }
 }
