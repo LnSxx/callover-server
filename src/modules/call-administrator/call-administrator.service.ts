@@ -72,7 +72,7 @@ export class CallAdministratorService {
   async acceptCall(
     params: CA_AcceptCall_Params,
   ): Promise<CA_AcceptCall_Result> {
-    return await this.callLifecycleService.acceptCall({
+    return await this.callLifecycleService.registerCallAccept({
       calleeUserId: params.calleeUserId,
       calleeSocketId: params.calleeSocketId,
     });

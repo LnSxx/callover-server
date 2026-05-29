@@ -12,7 +12,54 @@ export type CallInitResult =
       reason: CallInitFailReason;
     };
 
-export type CallEndFailReason = 'not-found';
+export type CallAcceptFailReason =
+  | 'not-found'
+  | 'unexpected-peer'
+  | 'invalid-state';
+
+export type CallAcceptResult =
+  | {
+      accepted: true;
+      call: Call;
+    }
+  | {
+      accepted: false;
+      reason: CallAcceptFailReason;
+    };
+
+export type CallDeclineFailReason =
+  | 'not-found'
+  | 'invalid-status'
+  | 'unexpected-peer';
+
+export type CallDeclineResult =
+  | {
+      declined: true;
+      declinedCallerCall: Call;
+      declinedCalleeCall: Call;
+    }
+  | {
+      declined: false;
+      reason: CallDeclineFailReason;
+    };
+
+export type CallCancelFailReason =
+  | 'not-found'
+  | 'invalid-status'
+  | 'unexpected-peer';
+
+export type CallCancelResult =
+  | {
+      cancelled: true;
+      cancelledCallerCall: Call;
+      cancelledCalleeCall: Call;
+    }
+  | {
+      cancelled: false;
+      reason: CallCancelFailReason;
+    };
+
+export type CallEndFailReason = 'invalid-status' | 'not-found';
 
 export type CallEndResult =
   | {

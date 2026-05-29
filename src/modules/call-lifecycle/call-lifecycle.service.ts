@@ -49,70 +49,64 @@ export class CallLifecycleService {
     };
   }
 
-  async acceptCall(
+  async registerCallAccept(
     params: CL_AcceptCall_Params,
   ): Promise<CL_AcceptCall_Result> {
     const { calleeUserId, calleeSocketId } = params;
 
-    const acceptedCall = await this.callsService.acceptCall({
-      userId: calleeUserId,
-      socketId: calleeSocketId,
+    return await this.callsService.acceptCall({
+      calleeUserId: calleeUserId,
+      calleeSocketId: calleeSocketId,
     });
-
-    if (!acceptedCall) {
-      return null;
-    }
-
-    return acceptedCall;
   }
 
   async registerCallDecline(
     params: CL_DeclineCall_Params,
   ): Promise<CL_DeclineCall_Result> {
     const { calleeUserId } = params;
-    const endCallResult = await this.callsService.endCall(calleeUserId);
+    const declineCallResult = await this.callsService.declineCall(calleeUserId);
 
-    if (!endCallResult.ended) {
+    if (!declineCallResult.declined) {
       return {
         declined: false,
-        reason: endCallResult.reason,
+        reason: declineCallResult.reason,
       };
     }
 
-    const { endedCallerCall, endedCalleeCall } = endCallResult;
+    const { declinedCallerCall, declinedCalleeCall } = declineCallResult;
     const endedAt = new Date();
 
-    if (endedCallerCall) {
+    if (declinedCallerCall) {
       await this.callLogsService.createCallLog({
-        callId: endedCallerCall.roomId,
-        userId: endedCallerCall.userId,
-        peerUserId: endedCallerCall.peerUserId,
-        startedAt: endedCallerCall.createdAt,
+        callId: declinedCallerCall.roomId,
+        userId: declinedCallerCall.userId,
+        peerUserId: declinedCallerCall.peerUserId,
+        startedAt: declinedCallerCall.createdAt,
         answeredAt: undefined,
         endedAt: endedAt,
-        direction: endedCallerCall.direction,
-        type: endedCallerCall.type,
+        direction: declinedCallerCall.direction,
+        type: declinedCallerCall.type,
         status: 'declined',
       });
     }
 
-    if (endedCalleeCall) {
+    if (declinedCalleeCall) {
       await this.callLogsService.createCallLog({
-        callId: endedCalleeCall.roomId,
-        userId: endedCalleeCall.userId,
-        peerUserId: endedCalleeCall.peerUserId,
-        startedAt: endedCalleeCall.createdAt,
+        callId: declinedCalleeCall.roomId,
+        userId: declinedCalleeCall.userId,
+        peerUserId: declinedCalleeCall.peerUserId,
+        startedAt: declinedCalleeCall.createdAt,
         answeredAt: undefined,
         endedAt: endedAt,
-        direction: endedCalleeCall.direction,
-        type: endedCalleeCall.type,
+        direction: declinedCalleeCall.direction,
+        type: declinedCalleeCall.type,
         status: 'declined',
       });
     }
 
     return {
       declined: true,
-      callRoomId: endedCalleeCall.roomId,
+      callRoomId: declinedCalleeCall.roomId,
     };
   }
 

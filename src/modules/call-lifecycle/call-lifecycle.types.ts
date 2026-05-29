@@ -28,7 +28,20 @@ export type CL_AcceptCall_Params = {
   calleeSocketId: string;
 };
 
-export type CL_AcceptCall_Result = Call | null;
+export type CL_AcceptCall_FailReason =
+  | 'not-found'
+  | 'unexpected-peer'
+  | 'invalid-state';
+
+export type CL_AcceptCall_Result =
+  | {
+      accepted: true;
+      call: Call;
+    }
+  | {
+      accepted: false;
+      reason: CL_AcceptCall_FailReason;
+    };
 
 export type CL_DeclineCall_Params = {
   calleeUserId: string;
@@ -37,7 +50,7 @@ export type CL_DeclineCall_Params = {
 export type CL_DeclineCall_FailureReasons =
   | 'invalid-status'
   | 'not-found'
-  | 'unexpected-decliner';
+  | 'unexpected-peer';
 
 export type CL_DeclineCall_Result =
   | {
@@ -56,7 +69,7 @@ export type CL_CancelCall_Params = {
 export type CL_CancelCall_FailureReasons =
   | 'invalid-status'
   | 'not-found'
-  | 'unexpected-decliner';
+  | 'unexpected-peer';
 
 export type CL_CancelCall_Result =
   | {

@@ -2,7 +2,13 @@ import { randomUUID } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { RedisClientType } from 'redis';
 import { REDIS_CLIENT } from '../redis/redis.provider';
-import type { CallEndResult, CallInitResult } from './calls.types';
+import type {
+  CallAcceptResult,
+  CallCancelResult,
+  CallDeclineResult,
+  CallEndResult,
+  CallInitResult,
+} from './calls.types';
 import { Call, CallType } from '../../entities/call';
 
 @Injectable()
@@ -104,53 +110,199 @@ export class CallsService {
   }
 
   async acceptCall({
-    userId,
-    socketId,
+    calleeUserId,
+    calleeSocketId,
   }: {
-    userId: string;
-    socketId: string;
-  }): Promise<Call | null> {
-    const call = await this.getCall(userId);
+    calleeUserId: string;
+    calleeSocketId: string;
+  }): Promise<CallAcceptResult> {
+    const calleeCall = await this.getCall(calleeUserId);
 
-    if (!call || call.status !== 'ringing') {
-      return null;
+    if (!calleeCall) {
+      return {
+        accepted: false,
+        reason: 'not-found',
+      };
     }
 
-    const peerCall = await this.getCall(call.peerUserId);
+    if (calleeCall.status !== 'ringing') {
+      return {
+        accepted: false,
+        reason: 'invalid-state',
+      };
+    }
 
-    if (!peerCall || peerCall.status !== 'calling') {
-      return null;
+    const callerCall = await this.getCall(calleeCall.peerUserId);
+
+    if (!callerCall) {
+      return {
+        accepted: false,
+        reason: 'not-found',
+      };
+    }
+
+    if (callerCall.status !== 'calling') {
+      return {
+        accepted: false,
+        reason: 'invalid-state',
+      };
+    }
+
+    if (
+      calleeCall.direction !== 'incoming' ||
+      callerCall.direction !== 'outgoing'
+    ) {
+      return {
+        accepted: false,
+        reason: 'unexpected-peer',
+      };
     }
 
     const acceptedAt = new Date();
 
-    const updatedCall: Call = {
-      ...call,
-      socketId,
-      peerSocketId: peerCall.socketId,
+    const updatedCalleeCall: Call = {
+      ...calleeCall,
+      socketId: calleeSocketId,
+      peerSocketId: callerCall.socketId,
       status: 'active',
       acceptedAt,
     };
 
-    const updatedPeerCall: Call = {
-      ...peerCall,
-      peerSocketId: socketId,
+    const updatedCallerCall: Call = {
+      ...callerCall,
+      peerSocketId: calleeSocketId,
       status: 'active',
       acceptedAt,
     };
 
     await this.redis
       .multi()
-      .set(this.userCallKey(userId), JSON.stringify(updatedCall), {
+      .set(this.userCallKey(calleeUserId), JSON.stringify(updatedCalleeCall), {
         EX: this.activeTtlSeconds,
       })
-      .set(this.userCallKey(peerCall.userId), JSON.stringify(updatedPeerCall), {
-        EX: this.activeTtlSeconds,
-      })
-      .expire(this.roomUsersKey(call.roomId), this.activeTtlSeconds)
+      .set(
+        this.userCallKey(callerCall.userId),
+        JSON.stringify(updatedCallerCall),
+        {
+          EX: this.activeTtlSeconds,
+        },
+      )
+      .expire(this.roomUsersKey(calleeCall.roomId), this.activeTtlSeconds)
       .exec();
 
-    return updatedCall;
+    return {
+      accepted: true,
+      call: updatedCalleeCall,
+    };
+  }
+
+  async declineCall(calleeUserId: string): Promise<CallDeclineResult> {
+    const call = await this.getCall(calleeUserId);
+
+    if (!call) {
+      return {
+        declined: false,
+        reason: 'not-found',
+      };
+    }
+
+    const peerCall = await this.getCall(call.peerUserId);
+
+    if (!peerCall) {
+      return {
+        declined: false,
+        reason: 'not-found',
+      };
+    }
+
+    if (call.direction !== 'incoming' || peerCall.direction !== 'outgoing') {
+      return {
+        declined: false,
+        reason: 'unexpected-peer',
+      };
+    }
+
+    if (call.status !== 'ringing' || peerCall.status !== 'calling') {
+      return {
+        declined: false,
+        reason: 'invalid-status',
+      };
+    }
+
+    const roomUsers = await this.redis.sMembers(this.roomUsersKey(call.roomId));
+
+    const multi = this.redis.multi();
+
+    for (const roomUserId of roomUsers) {
+      multi.del(this.userCallKey(roomUserId));
+    }
+
+    multi.del(this.roomUsersKey(call.roomId));
+
+    await multi.exec();
+
+    return {
+      declined: true,
+      declinedCalleeCall: call,
+      declinedCallerCall: peerCall,
+    };
+  }
+
+  async cancelCall(callerUserId: string): Promise<CallCancelResult> {
+    const callerCall = await this.getCall(callerUserId);
+
+    if (!callerCall) {
+      return {
+        cancelled: false,
+        reason: 'not-found',
+      };
+    }
+
+    const calleeCall = await this.getCall(callerCall.peerUserId);
+
+    if (!calleeCall) {
+      return {
+        cancelled: false,
+        reason: 'not-found',
+      };
+    }
+
+    if (
+      callerCall.direction !== 'outgoing' ||
+      calleeCall.direction !== 'incoming'
+    ) {
+      return {
+        cancelled: false,
+        reason: 'unexpected-peer',
+      };
+    }
+
+    if (callerCall.status !== 'calling' || calleeCall.status !== 'ringing') {
+      return {
+        cancelled: false,
+        reason: 'invalid-status',
+      };
+    }
+
+    const roomUsers = await this.redis.sMembers(
+      this.roomUsersKey(callerCall.roomId),
+    );
+
+    const multi = this.redis.multi();
+
+    for (const roomUserId of roomUsers) {
+      multi.del(this.userCallKey(roomUserId));
+    }
+
+    multi.del(this.roomUsersKey(callerCall.roomId));
+
+    await multi.exec();
+
+    return {
+      cancelled: true,
+      cancelledCalleeCall: calleeCall,
+      cancelledCallerCall: callerCall,
+    };
   }
 
   async endCall(userId: string): Promise<CallEndResult> {
@@ -169,6 +321,13 @@ export class CallsService {
       return {
         ended: false,
         reason: 'not-found',
+      };
+    }
+
+    if (call.status !== 'active' || peerCall.status !== 'active') {
+      return {
+        ended: false,
+        reason: 'invalid-status',
       };
     }
 
