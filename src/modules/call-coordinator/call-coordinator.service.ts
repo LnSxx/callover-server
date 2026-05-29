@@ -40,6 +40,16 @@ export class CallCoordinatorService {
       };
     }
 
+    const calleeSockets =
+      await this.presenceService.getSocketIdsForUser(toUserId);
+
+    if (calleeSockets.length === 0 && !callPermissions.shouldWakeDevice) {
+      return {
+        success: false,
+        reason: 'callee-unavailable',
+      };
+    }
+
     const callStartResult =
       await this.callLifecycleService.tryStartCall(params);
 
@@ -49,9 +59,6 @@ export class CallCoordinatorService {
         reason: callStartResult.reason,
       };
     }
-
-    const calleeSockets =
-      await this.presenceService.getSocketIdsForUser(toUserId);
 
     if (calleeSockets.length === 0 && callPermissions.shouldWakeDevice) {
       // Implement APN/FCM or PushKit/CallKit wake up call to devices.
