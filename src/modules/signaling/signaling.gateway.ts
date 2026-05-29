@@ -69,9 +69,9 @@ export class SignalingGateway {
     if (!userId) return;
 
     const callInitResult = await this.callCoordinatorService.tryInitiateCall({
-      callerUserId: userId,
-      calleeUserId: body.toUserId,
-      callerSocketId: client.id,
+      fromUserId: userId,
+      toUserId: body.toUserId,
+      socketId: client.id,
       type: body.type,
     });
 
@@ -139,15 +139,13 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const endCallResult = await this.callCoordinatorService.declineCall({
-      calleeUserId: userId,
-    });
+    const endCallResult = await this.callCoordinatorService.declineCall(userId);
 
     if (!endCallResult.declined) {
       return;
     }
 
-    client.to(endCallResult.callRoomId).emit('message', {
+    client.to(endCallResult.declinedCalleeCall.roomId).emit('message', {
       type: SignalingEventTypes.CallDecline,
       payload: {
         fromUserId: userId,
@@ -168,15 +166,13 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const endCallResult = await this.callCoordinatorService.cancelCall({
-      callerUserId: userId,
-    });
+    const endCallResult = await this.callCoordinatorService.cancelCall(userId);
 
     if (!endCallResult.cancelled) {
       return;
     }
 
-    for (const socketId of endCallResult.peerSockets) {
+    for (const socketId of endCallResult.calleeSockets) {
       this.server.to(socketId).emit('message', {
         type: SignalingEventTypes.CallCancel,
         payload: {
@@ -199,15 +195,13 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const endCallResult = await this.callCoordinatorService.endCall({
-      userId: userId,
-    });
+    const endCallResult = await this.callCoordinatorService.endCall(userId);
 
     if (!endCallResult.ended) {
       return;
     }
 
-    client.to(endCallResult.callRoomId).emit('message', {
+    client.to(endCallResult.endedCalleeCall.roomId).emit('message', {
       type: SignalingEventTypes.CallEnd,
       payload: {
         fromUserId: userId,

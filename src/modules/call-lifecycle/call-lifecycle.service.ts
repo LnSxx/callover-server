@@ -2,19 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { CallsService } from '../calls/calls.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CallLogsService } from '../call-logs/call-logs.service';
-import type {
-  CL_AcceptCall_Params,
-  CL_AcceptCall_Result,
-  CL_CancelCall_Params,
-  CL_CancelCall_Result,
-  CL_DeclineCall_Params,
-  CL_DeclineCall_Result,
-  CL_EndCall_Params,
-  CL_EndCall_Result,
-  CL_TryStartCall_Params,
-  CL_TryStartCall_Result,
-} from './call-lifecycle.types';
 import { Call } from '../../entities/call';
+import {
+  CallAcceptParams,
+  CallAcceptResult,
+  CallCancelResult,
+  CallDeclineResult,
+  CallEndResult,
+  CallInitParams,
+  CallInitResult,
+} from '../calls/calls.types';
 
 @Injectable()
 export class CallLifecycleService {
@@ -24,34 +21,13 @@ export class CallLifecycleService {
     private readonly callLogsService: CallLogsService,
   ) {}
 
-  async tryStartCall(
-    params: CL_TryStartCall_Params,
-  ): Promise<CL_TryStartCall_Result> {
-    const { callerUserId, calleeUserId, callerSocketId, type } = params;
-
-    const callInitResult = await this.callsService.initiateCall({
-      type,
-      fromUserId: callerUserId,
-      toUserId: calleeUserId,
-      socketId: callerSocketId,
-    });
-
-    if (!callInitResult.success) {
-      return {
-        success: false,
-        reason: callInitResult.reason,
-      };
-    }
-
-    return {
-      success: true,
-      call: callInitResult.call,
-    };
+  async tryStartCall(params: CallInitParams): Promise<CallInitResult> {
+    return await this.callsService.initiateCall(params);
   }
 
   async registerCallAccept(
-    params: CL_AcceptCall_Params,
-  ): Promise<CL_AcceptCall_Result> {
+    params: CallAcceptParams,
+  ): Promise<CallAcceptResult> {
     const { calleeUserId, calleeSocketId } = params;
 
     return await this.callsService.acceptCall({
@@ -60,10 +36,7 @@ export class CallLifecycleService {
     });
   }
 
-  async registerCallDecline(
-    params: CL_DeclineCall_Params,
-  ): Promise<CL_DeclineCall_Result> {
-    const { calleeUserId } = params;
+  async registerCallDecline(calleeUserId: string): Promise<CallDeclineResult> {
     const declineCallResult = await this.callsService.declineCall(calleeUserId);
 
     if (!declineCallResult.declined) {
@@ -106,70 +79,67 @@ export class CallLifecycleService {
 
     return {
       declined: true,
-      callRoomId: declinedCalleeCall.roomId,
+      declinedCalleeCall: declinedCalleeCall,
+      declinedCallerCall: declinedCallerCall,
     };
   }
 
-  async registerCallCancel(
-    params: CL_CancelCall_Params,
-  ): Promise<CL_CancelCall_Result> {
-    const { callerUserId } = params;
-    const endCallResult = await this.callsService.endCall(callerUserId);
+  async registerCallCancel(callerUserId: string): Promise<CallCancelResult> {
+    const cancelCallResult = await this.callsService.cancelCall(callerUserId);
 
-    if (!endCallResult.ended) {
+    if (!cancelCallResult.cancelled) {
       return {
         cancelled: false,
-        reason: endCallResult.reason,
+        reason: cancelCallResult.reason,
       };
     }
 
-    const { endedCallerCall, endedCalleeCall } = endCallResult;
+    const { cancelledCalleeCall, cancelledCallerCall } = cancelCallResult;
     const endedAt = new Date();
 
-    if (endedCallerCall) {
+    if (cancelledCallerCall) {
       await this.callLogsService.createCallLog({
-        callId: endedCallerCall.roomId,
-        userId: endedCallerCall.userId,
-        peerUserId: endedCallerCall.peerUserId,
-        startedAt: endedCallerCall.createdAt,
+        callId: cancelledCallerCall.roomId,
+        userId: cancelledCallerCall.userId,
+        peerUserId: cancelledCallerCall.peerUserId,
+        startedAt: cancelledCallerCall.createdAt,
         answeredAt: undefined,
         endedAt: endedAt,
-        direction: endedCallerCall.direction,
-        type: endedCallerCall.type,
+        direction: cancelledCallerCall.direction,
+        type: cancelledCallerCall.type,
         status: 'cancelled',
       });
     }
 
-    if (endedCalleeCall) {
+    if (cancelledCalleeCall) {
       await this.callLogsService.createCallLog({
-        callId: endedCalleeCall.roomId,
-        userId: endedCalleeCall.userId,
-        peerUserId: endedCalleeCall.peerUserId,
-        startedAt: endedCalleeCall.createdAt,
+        callId: cancelledCalleeCall.roomId,
+        userId: cancelledCalleeCall.userId,
+        peerUserId: cancelledCalleeCall.peerUserId,
+        startedAt: cancelledCalleeCall.createdAt,
         answeredAt: undefined,
         endedAt: endedAt,
-        direction: endedCalleeCall.direction,
-        type: endedCalleeCall.type,
+        direction: cancelledCalleeCall.direction,
+        type: cancelledCalleeCall.type,
         status: 'missed',
       });
 
       await this.notificationService.createMissedCallNotification({
-        userId: endedCalleeCall.userId,
-        callId: endedCalleeCall.roomId,
-        fromUserId: endedCalleeCall.peerUserId,
-        callType: endedCalleeCall.type,
+        userId: cancelledCalleeCall.userId,
+        callId: cancelledCalleeCall.roomId,
+        fromUserId: cancelledCalleeCall.peerUserId,
+        callType: cancelledCalleeCall.type,
       });
     }
 
     return {
       cancelled: true,
-      peerUserId: endedCalleeCall.userId,
+      cancelledCalleeCall: cancelledCalleeCall,
+      cancelledCallerCall: cancelledCallerCall,
     };
   }
 
-  async registerCallEnd(params: CL_EndCall_Params): Promise<CL_EndCall_Result> {
-    const { userId } = params;
-
+  async registerCallEnd(userId: string): Promise<CallEndResult> {
     const endCallResult = await this.callsService.endCall(userId);
 
     if (!endCallResult.ended) {
@@ -219,7 +189,8 @@ export class CallLifecycleService {
 
     return {
       ended: true,
-      callRoomId: endedCalleeCall.roomId,
+      endedCalleeCall: endedCalleeCall,
+      endedCallerCall: endedCallerCall,
     };
   }
 

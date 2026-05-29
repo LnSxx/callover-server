@@ -1,4 +1,11 @@
-import { Call } from '../../entities/call';
+import { Call, CallType } from '../../entities/call';
+
+export type CallInitParams = {
+  type: CallType;
+  fromUserId: string;
+  toUserId: string;
+  socketId: string;
+};
 
 export type CallInitFailReason = 'self-call' | 'callee-busy' | 'caller-busy';
 
@@ -11,6 +18,11 @@ export type CallInitResult =
       success: false;
       reason: CallInitFailReason;
     };
+
+export type CallAcceptParams = {
+  calleeUserId: string;
+  calleeSocketId: string;
+};
 
 export type CallAcceptFailReason =
   | 'not-found'

@@ -3,13 +3,15 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { RedisClientType } from 'redis';
 import { REDIS_CLIENT } from '../redis/redis.provider';
 import type {
+  CallAcceptParams,
   CallAcceptResult,
   CallCancelResult,
   CallDeclineResult,
   CallEndResult,
+  CallInitParams,
   CallInitResult,
 } from './calls.types';
-import { Call, CallType } from '../../entities/call';
+import { Call } from '../../entities/call';
 
 @Injectable()
 export class CallsService {
@@ -29,17 +31,9 @@ export class CallsService {
     return `calls:room:${roomId}:users`;
   }
 
-  async initiateCall({
-    type,
-    fromUserId,
-    toUserId,
-    socketId,
-  }: {
-    type: CallType;
-    fromUserId: string;
-    toUserId: string;
-    socketId: string;
-  }): Promise<CallInitResult> {
+  async initiateCall(params: CallInitParams): Promise<CallInitResult> {
+    const { type, fromUserId, toUserId, socketId } = params;
+
     if (fromUserId === toUserId) {
       return {
         success: false,
@@ -109,13 +103,9 @@ export class CallsService {
     };
   }
 
-  async acceptCall({
-    calleeUserId,
-    calleeSocketId,
-  }: {
-    calleeUserId: string;
-    calleeSocketId: string;
-  }): Promise<CallAcceptResult> {
+  async acceptCall(params: CallAcceptParams): Promise<CallAcceptResult> {
+    const { calleeUserId, calleeSocketId } = params;
+
     const calleeCall = await this.getCall(calleeUserId);
 
     if (!calleeCall) {

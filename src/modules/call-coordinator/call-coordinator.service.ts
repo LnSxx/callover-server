@@ -4,16 +4,15 @@ import { CallPermissionsService } from '../call-permissions/call-permissions.ser
 import { CallLifecycleService } from '../call-lifecycle/call-lifecycle.service';
 import type {
   CA_TryInitiateCall_Result,
-  CA_TryInitiateCall_Params,
-  CA_AcceptCall_Params,
-  CA_AcceptCall_Result,
-  CA_DeclineCall_Params,
-  CA_DeclineCall_Result,
-  CA_CancelCall_Params,
   CA_CancelCall_Result,
-  CA_EndCall_Params,
-  CA_EndCall_Result,
 } from './call-coordinator.types';
+import {
+  CallAcceptParams,
+  CallAcceptResult,
+  CallDeclineResult,
+  CallEndResult,
+  CallInitParams,
+} from '../calls/calls.types';
 
 @Injectable()
 export class CallCoordinatorService {
@@ -24,14 +23,14 @@ export class CallCoordinatorService {
   ) {}
 
   async tryInitiateCall(
-    params: CA_TryInitiateCall_Params,
+    params: CallInitParams,
   ): Promise<CA_TryInitiateCall_Result> {
-    const { callerUserId, calleeUserId, callerSocketId, type } = params;
+    const { fromUserId, toUserId } = params;
 
     const callPermissions =
       await this.callPermissionsService.getCallPermissions({
-        callerUserId: callerUserId,
-        calleeUserId: calleeUserId,
+        callerUserId: fromUserId,
+        calleeUserId: toUserId,
       });
 
     if (!callPermissions.canCall) {
@@ -41,12 +40,8 @@ export class CallCoordinatorService {
       };
     }
 
-    const callStartResult = await this.callLifecycleService.tryStartCall({
-      callerUserId,
-      calleeUserId,
-      callerSocketId,
-      type,
-    });
+    const callStartResult =
+      await this.callLifecycleService.tryStartCall(params);
 
     if (!callStartResult.success) {
       return {
@@ -56,7 +51,7 @@ export class CallCoordinatorService {
     }
 
     const calleeSockets =
-      await this.presenceService.getSocketIdsForUser(calleeUserId);
+      await this.presenceService.getSocketIdsForUser(toUserId);
 
     if (calleeSockets.length === 0 && callPermissions.shouldWakeDevice) {
       // Implement APN/FCM or PushKit/CallKit wake up call to devices.
@@ -69,31 +64,20 @@ export class CallCoordinatorService {
     };
   }
 
-  async acceptCall(
-    params: CA_AcceptCall_Params,
-  ): Promise<CA_AcceptCall_Result> {
+  async acceptCall(params: CallAcceptParams): Promise<CallAcceptResult> {
     return await this.callLifecycleService.registerCallAccept({
       calleeUserId: params.calleeUserId,
       calleeSocketId: params.calleeSocketId,
     });
   }
 
-  async declineCall(
-    params: CA_DeclineCall_Params,
-  ): Promise<CA_DeclineCall_Result> {
-    return await this.callLifecycleService.registerCallDecline({
-      calleeUserId: params.calleeUserId,
-    });
+  async declineCall(calleeUserId: string): Promise<CallDeclineResult> {
+    return await this.callLifecycleService.registerCallDecline(calleeUserId);
   }
 
-  async cancelCall(
-    params: CA_CancelCall_Params,
-  ): Promise<CA_CancelCall_Result> {
-    const callCancelResult = await this.callLifecycleService.registerCallCancel(
-      {
-        callerUserId: params.callerUserId,
-      },
-    );
+  async cancelCall(callerUserId: string): Promise<CA_CancelCall_Result> {
+    const callCancelResult =
+      await this.callLifecycleService.registerCallCancel(callerUserId);
 
     if (!callCancelResult.cancelled) {
       return {
@@ -103,19 +87,17 @@ export class CallCoordinatorService {
     }
 
     const calleeSockets = await this.presenceService.getSocketIdsForUser(
-      callCancelResult.peerUserId,
+      callCancelResult.cancelledCallerCall.peerUserId,
     );
 
     return {
       cancelled: true,
-      peerSockets: calleeSockets,
+      calleeSockets: calleeSockets,
     };
   }
 
-  async endCall(params: CA_EndCall_Params): Promise<CA_EndCall_Result> {
-    return await this.callLifecycleService.registerCallEnd({
-      userId: params.userId,
-    });
+  async endCall(userId: string): Promise<CallEndResult> {
+    return await this.callLifecycleService.registerCallEnd(userId);
   }
 
   async getCallRoomIdForUserIfHasActiveCall(
