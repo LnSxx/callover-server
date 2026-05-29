@@ -205,6 +205,13 @@ export class CallsService {
       };
     }
 
+    if (calleeCall.roomId !== callerCall.roomId) {
+      return {
+        declined: false,
+        reason: 'unexpected-peer',
+      };
+    }
+
     if (
       calleeCall.direction !== 'incoming' ||
       callerCall.direction !== 'outgoing'
@@ -222,7 +229,10 @@ export class CallsService {
       };
     }
 
-    await this.deleteCallRoom(calleeCall.roomId);
+    await this.deleteCallRoom({
+      roomId: calleeCall.roomId,
+      userIds: [callerCall.userId, calleeCall.userId],
+    });
 
     return {
       declined: true,
@@ -250,6 +260,13 @@ export class CallsService {
       };
     }
 
+    if (calleeCall.roomId !== callerCall.roomId) {
+      return {
+        cancelled: false,
+        reason: 'unexpected-peer',
+      };
+    }
+
     if (
       callerCall.direction !== 'outgoing' ||
       calleeCall.direction !== 'incoming'
@@ -267,7 +284,10 @@ export class CallsService {
       };
     }
 
-    await this.deleteCallRoom(callerCall.roomId);
+    await this.deleteCallRoom({
+      roomId: callerCall.roomId,
+      userIds: [callerCall.userId, calleeCall.userId],
+    });
 
     return {
       cancelled: true,
@@ -295,6 +315,24 @@ export class CallsService {
       };
     }
 
+    if (call.roomId !== peerCall.roomId) {
+      return {
+        ended: false,
+        reason: 'unexpected-peer',
+      };
+    }
+
+    const hasValidDirections =
+      (call.direction === 'outgoing' && peerCall.direction === 'incoming') ||
+      (call.direction === 'incoming' && peerCall.direction === 'outgoing');
+
+    if (!hasValidDirections) {
+      return {
+        ended: false,
+        reason: 'unexpected-peer',
+      };
+    }
+
     if (call.status !== 'active' || peerCall.status !== 'active') {
       return {
         ended: false,
@@ -302,7 +340,17 @@ export class CallsService {
       };
     }
 
-    await this.deleteCallRoom(call.roomId);
+    if (!call.acceptedAt || !peerCall.acceptedAt) {
+      return {
+        ended: false,
+        reason: 'invalid-status',
+      };
+    }
+
+    await this.deleteCallRoom({
+      roomId: call.roomId,
+      userIds: [call.userId, peerCall.userId],
+    });
 
     return {
       ended: true,
@@ -336,42 +384,32 @@ export class CallsService {
   }
 
   async getCurrentRingingCall(userId: string): Promise<Call | null> {
-    const rawCall = await this.redis.get(this.userCallKey(userId));
+    const call = await this.getCall(userId);
 
-    if (!rawCall) {
+    if (!call || call.status !== 'ringing') {
       return null;
     }
 
-    const parsedCall = JSON.parse(rawCall) as Omit<
-      Call,
-      'createdAt' | 'acceptedAt'
-    > & {
-      createdAt: string;
-      acceptedAt?: string;
-    };
-
-    if (parsedCall.status === 'ringing') {
-      return {
-        ...parsedCall,
-        createdAt: new Date(parsedCall.createdAt),
-        acceptedAt: parsedCall.acceptedAt
-          ? new Date(parsedCall.acceptedAt)
-          : undefined,
-      };
-    }
-    return null;
+    return call;
   }
 
-  private async deleteCallRoom(roomId: string): Promise<void> {
-    const roomUsers = await this.redis.sMembers(this.roomUsersKey(roomId));
+  private async deleteCallRoom(params: {
+    roomId: string;
+    userIds: string[];
+  }): Promise<void> {
+    const roomUsers = await this.redis.sMembers(
+      this.roomUsersKey(params.roomId),
+    );
+
+    const userIdsToDelete = new Set([...roomUsers, ...params.userIds]);
 
     const multi = this.redis.multi();
 
-    for (const roomUserId of roomUsers) {
-      multi.del(this.userCallKey(roomUserId));
+    for (const userId of userIdsToDelete) {
+      multi.del(this.userCallKey(userId));
     }
 
-    multi.del(this.roomUsersKey(roomId));
+    multi.del(this.roomUsersKey(params.roomId));
 
     await multi.exec();
   }

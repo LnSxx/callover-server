@@ -71,7 +71,10 @@ export type CallCancelResult =
       reason: CallCancelFailReason;
     };
 
-export type CallEndFailReason = 'invalid-status' | 'not-found';
+export type CallEndFailReason =
+  | 'invalid-status'
+  | 'not-found'
+  | 'unexpected-peer';
 
 export type CallEndResult =
   | {

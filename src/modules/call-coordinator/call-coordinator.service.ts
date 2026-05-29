@@ -43,7 +43,7 @@ export class CallCoordinatorService {
     const calleeSockets =
       await this.presenceService.getSocketIdsForUser(toUserId);
 
-    if (calleeSockets.length === 0 && !callPermissions.shouldWakeDevice) {
+    if (calleeSockets.length === 0) {
       return {
         success: false,
         reason: 'callee-unavailable',
@@ -58,10 +58,6 @@ export class CallCoordinatorService {
         success: false,
         reason: callStartResult.reason,
       };
-    }
-
-    if (calleeSockets.length === 0 && callPermissions.shouldWakeDevice) {
-      // Implement APN/FCM or PushKit/CallKit wake up call to devices.
     }
 
     return {

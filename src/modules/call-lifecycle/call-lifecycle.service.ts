@@ -12,6 +12,7 @@ import {
   CallInitParams,
   CallInitResult,
 } from '../calls/calls.types';
+import { CallLogStatus } from '../call-logs/types/call-logs.types';
 
 @Injectable()
 export class CallLifecycleService {
@@ -49,33 +50,17 @@ export class CallLifecycleService {
     const { declinedCallerCall, declinedCalleeCall } = declineCallResult;
     const endedAt = new Date();
 
-    if (declinedCallerCall) {
-      await this.callLogsService.createCallLog({
-        callId: declinedCallerCall.roomId,
-        userId: declinedCallerCall.userId,
-        peerUserId: declinedCallerCall.peerUserId,
-        startedAt: declinedCallerCall.createdAt,
-        answeredAt: undefined,
-        endedAt: endedAt,
-        direction: declinedCallerCall.direction,
-        type: declinedCallerCall.type,
-        status: 'declined',
-      });
-    }
+    await this.createLogFromCall({
+      call: declinedCallerCall,
+      status: 'declined',
+      endedAt: endedAt,
+    });
 
-    if (declinedCalleeCall) {
-      await this.callLogsService.createCallLog({
-        callId: declinedCalleeCall.roomId,
-        userId: declinedCalleeCall.userId,
-        peerUserId: declinedCalleeCall.peerUserId,
-        startedAt: declinedCalleeCall.createdAt,
-        answeredAt: undefined,
-        endedAt: endedAt,
-        direction: declinedCalleeCall.direction,
-        type: declinedCalleeCall.type,
-        status: 'declined',
-      });
-    }
+    await this.createLogFromCall({
+      call: declinedCalleeCall,
+      status: 'declined',
+      endedAt: endedAt,
+    });
 
     return {
       declined: true,
@@ -97,40 +82,24 @@ export class CallLifecycleService {
     const { cancelledCalleeCall, cancelledCallerCall } = cancelCallResult;
     const endedAt = new Date();
 
-    if (cancelledCallerCall) {
-      await this.callLogsService.createCallLog({
-        callId: cancelledCallerCall.roomId,
-        userId: cancelledCallerCall.userId,
-        peerUserId: cancelledCallerCall.peerUserId,
-        startedAt: cancelledCallerCall.createdAt,
-        answeredAt: undefined,
-        endedAt: endedAt,
-        direction: cancelledCallerCall.direction,
-        type: cancelledCallerCall.type,
-        status: 'cancelled',
-      });
-    }
+    await this.createLogFromCall({
+      call: cancelledCallerCall,
+      status: 'cancelled',
+      endedAt: endedAt,
+    });
 
-    if (cancelledCalleeCall) {
-      await this.callLogsService.createCallLog({
-        callId: cancelledCalleeCall.roomId,
-        userId: cancelledCalleeCall.userId,
-        peerUserId: cancelledCalleeCall.peerUserId,
-        startedAt: cancelledCalleeCall.createdAt,
-        answeredAt: undefined,
-        endedAt: endedAt,
-        direction: cancelledCalleeCall.direction,
-        type: cancelledCalleeCall.type,
-        status: 'missed',
-      });
+    await this.createLogFromCall({
+      call: cancelledCalleeCall,
+      status: 'missed',
+      endedAt: endedAt,
+    });
 
-      await this.notificationService.createMissedCallNotification({
-        userId: cancelledCalleeCall.userId,
-        callId: cancelledCalleeCall.roomId,
-        fromUserId: cancelledCalleeCall.peerUserId,
-        callType: cancelledCalleeCall.type,
-      });
-    }
+    await this.notificationService.createMissedCallNotification({
+      userId: cancelledCalleeCall.userId,
+      callId: cancelledCalleeCall.roomId,
+      fromUserId: cancelledCalleeCall.peerUserId,
+      callType: cancelledCalleeCall.type,
+    });
 
     return {
       cancelled: true,
@@ -152,33 +121,19 @@ export class CallLifecycleService {
     const { endedCallerCall, endedCalleeCall } = endCallResult;
     const endedAt = new Date();
 
-    if (endedCallerCall) {
-      await this.callLogsService.createCallLog({
-        callId: endedCallerCall.roomId,
-        userId: endedCallerCall.userId,
-        peerUserId: endedCallerCall.peerUserId,
-        startedAt: endedCallerCall.createdAt,
-        answeredAt: endedCallerCall.acceptedAt,
-        endedAt: endedAt,
-        direction: endedCallerCall.direction,
-        type: endedCallerCall.type,
-        status: 'completed',
-      });
-    }
+    await this.createLogFromCall({
+      call: endedCallerCall,
+      status: 'completed',
+      endedAt: endedAt,
+      answeredAt: endedCallerCall.acceptedAt,
+    });
 
-    if (endedCalleeCall) {
-      await this.callLogsService.createCallLog({
-        callId: endedCalleeCall.roomId,
-        userId: endedCalleeCall.userId,
-        peerUserId: endedCalleeCall.peerUserId,
-        startedAt: endedCalleeCall.createdAt,
-        answeredAt: endedCallerCall.acceptedAt,
-        endedAt: endedAt,
-        direction: endedCalleeCall.direction,
-        type: endedCalleeCall.type,
-        status: 'completed',
-      });
-    }
+    await this.createLogFromCall({
+      call: endedCalleeCall,
+      status: 'completed',
+      endedAt: endedAt,
+      answeredAt: endedCalleeCall.acceptedAt,
+    });
 
     return {
       ended: true,
@@ -195,5 +150,24 @@ export class CallLifecycleService {
     }
 
     return call;
+  }
+
+  private async createLogFromCall(params: {
+    call: Call;
+    status: CallLogStatus;
+    endedAt: Date;
+    answeredAt?: Date;
+  }): Promise<void> {
+    await this.callLogsService.createCallLog({
+      callId: params.call.roomId,
+      userId: params.call.userId,
+      peerUserId: params.call.peerUserId,
+      startedAt: params.call.createdAt,
+      answeredAt: params.answeredAt,
+      endedAt: params.endedAt,
+      direction: params.call.direction,
+      type: params.call.type,
+      status: params.status,
+    });
   }
 }
