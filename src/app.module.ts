@@ -18,7 +18,7 @@ import { RedisModule } from './modules/redis/redis.module';
 import { CallPermissionsModule } from './modules/call-permissions/call-permissions.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { CallLogsModule } from './modules/call-logs/call-logs.module';
-import { CallAdministratorModule } from './modules/call-administrator/call-administrator.module';
+import { CallCoordinatorModule } from './modules/call-coordinator/call-coordinator.module';
 import { CallLifecycleModule } from './modules/call-lifecycle/call-lifecycle.module';
 
 @Module({
@@ -48,7 +48,7 @@ import { CallLifecycleModule } from './modules/call-lifecycle/call-lifecycle.mod
     CallPermissionsModule,
     NotificationsModule,
     CallLogsModule,
-    CallAdministratorModule,
+    CallCoordinatorModule,
     CallLifecycleModule,
   ],
   providers: [

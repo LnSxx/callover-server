@@ -13,10 +13,10 @@ import type {
   CA_CancelCall_Result,
   CA_EndCall_Params,
   CA_EndCall_Result,
-} from './call-administrator.types';
+} from './call-coordinator.types';
 
 @Injectable()
-export class CallAdministratorService {
+export class CallCoordinatorService {
   constructor(
     private readonly presenceService: PresenceService,
     private readonly callPermissionsService: CallPermissionsService,

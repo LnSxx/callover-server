@@ -24,7 +24,7 @@ import {
   CallOfferEvent,
 } from './signaling.types';
 import { CallDeclineMessageDto } from './dto/call-decline.message.dto';
-import { CallAdministratorService } from '../call-administrator/call-administrator.service';
+import { CallCoordinatorService } from '../call-coordinator/call-coordinator.service';
 
 @WebSocketGateway({
   namespace: 'events',
@@ -37,7 +37,7 @@ import { CallAdministratorService } from '../call-administrator/call-administrat
 @UseGuards(RealtimeAuthGuard)
 export class SignalingGateway {
   constructor(
-    private readonly callAdministratorService: CallAdministratorService,
+    private readonly callCoordinatorService: CallCoordinatorService,
   ) {}
 
   @WebSocketServer()
@@ -68,7 +68,7 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const callInitResult = await this.callAdministratorService.tryInitiateCall({
+    const callInitResult = await this.callCoordinatorService.tryInitiateCall({
       callerUserId: userId,
       calleeUserId: body.toUserId,
       callerSocketId: client.id,
@@ -106,18 +106,18 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const acceptedCall = await this.callAdministratorService.acceptCall({
+    const acceptedCallResult = await this.callCoordinatorService.acceptCall({
       calleeUserId: userId,
       calleeSocketId: client.id,
     });
 
-    if (!acceptedCall) {
+    if (!acceptedCallResult.accepted) {
       return;
     }
 
-    await client.join(acceptedCall.roomId);
+    await client.join(acceptedCallResult.call.roomId);
 
-    client.to(acceptedCall.roomId).emit('message', {
+    client.to(acceptedCallResult.call.roomId).emit('message', {
       type: SignalingEventTypes.CallAnswer,
       payload: {
         fromUserId: userId,
@@ -139,7 +139,7 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const endCallResult = await this.callAdministratorService.declineCall({
+    const endCallResult = await this.callCoordinatorService.declineCall({
       calleeUserId: userId,
     });
 
@@ -168,7 +168,7 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const endCallResult = await this.callAdministratorService.cancelCall({
+    const endCallResult = await this.callCoordinatorService.cancelCall({
       callerUserId: userId,
     });
 
@@ -199,7 +199,7 @@ export class SignalingGateway {
     const userId = this.getUserIdOrDisconnect(client);
     if (!userId) return;
 
-    const endCallResult = await this.callAdministratorService.endCall({
+    const endCallResult = await this.callCoordinatorService.endCall({
       userId: userId,
     });
 
@@ -229,7 +229,7 @@ export class SignalingGateway {
     if (!fromUserId) return;
 
     const activeCallRoomId =
-      await this.callAdministratorService.getCallRoomIdForUserIfHasActiveCall(
+      await this.callCoordinatorService.getCallRoomIdForUserIfHasActiveCall(
         fromUserId,
       );
 
