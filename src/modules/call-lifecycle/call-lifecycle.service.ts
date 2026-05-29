@@ -188,6 +188,12 @@ export class CallLifecycleService {
   }
 
   async getActiveCall(userId: string): Promise<Call | null> {
-    return this.callsService.getCall(userId);
+    const call = await this.callsService.getCall(userId);
+
+    if (!call || call.status !== 'active') {
+      return null;
+    }
+
+    return call;
   }
 }
