@@ -178,13 +178,6 @@ export class CallLifecycleService {
         type: endedCalleeCall.type,
         status: 'completed',
       });
-
-      await this.notificationService.createMissedCallNotification({
-        userId: endedCalleeCall.userId,
-        callId: endedCalleeCall.roomId,
-        fromUserId: endedCalleeCall.peerUserId,
-        callType: endedCalleeCall.type,
-      });
     }
 
     return {
