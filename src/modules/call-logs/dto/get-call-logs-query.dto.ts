@@ -8,8 +8,8 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import type { CallDirection, CallLogStatus } from '../types/call-logs.types';
-import type { CallType } from '../../../entities/call';
+import type { CallLogStatus } from '../types/call-logs.types';
+import type { CallDirection, CallType } from '../../../entities/call';
 
 export class GetCallLogsQueryDto {
   @ApiPropertyOptional({

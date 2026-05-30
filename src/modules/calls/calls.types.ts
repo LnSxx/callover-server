@@ -86,3 +86,19 @@ export type CallEndResult =
       ended: false;
       reason: CallEndFailReason;
     };
+
+export type CallRingingTimeoutFailReason =
+  | 'not-found'
+  | 'invalid-status'
+  | 'unexpected-peer';
+
+export type CallRingingTimeoutResult =
+  | {
+      timedOut: true;
+      timedOutCallerCall: Call;
+      timedOutCalleeCall: Call;
+    }
+  | {
+      timedOut: false;
+      reason: CallRingingTimeoutFailReason;
+    };

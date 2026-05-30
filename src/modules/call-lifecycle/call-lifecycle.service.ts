@@ -13,6 +13,7 @@ import {
   CallInitResult,
 } from '../calls/calls.types';
 import { CallLogStatus } from '../call-logs/types/call-logs.types';
+import { CallTimeoutsSchedulerService } from '../call-timeouts/call-timeouts-scheduler.service';
 
 @Injectable()
 export class CallLifecycleService {
@@ -20,21 +21,47 @@ export class CallLifecycleService {
     private readonly callsService: CallsService,
     private readonly notificationService: NotificationsService,
     private readonly callLogsService: CallLogsService,
+    private readonly callTimeoutsScheduler: CallTimeoutsSchedulerService,
   ) {}
 
+  private readonly ringingTimeoutMs = 90_000;
+  private readonly maxCallDurationMs = 21_600_000;
+
   async tryStartCall(params: CallInitParams): Promise<CallInitResult> {
-    return this.callsService.initiateCall(params);
+    const result = await this.callsService.initiateCall(params);
+
+    if (!result.success) {
+      return result;
+    }
+
+    await this.callTimeoutsScheduler.scheduleRingingTimeout({
+      roomId: result.call.roomId,
+      calleeUserId: params.toUserId,
+      delayMs: this.ringingTimeoutMs,
+    });
+
+    return result;
   }
 
   async registerCallAccept(
     params: CallAcceptParams,
   ): Promise<CallAcceptResult> {
-    const { calleeUserId, calleeSocketId } = params;
-
-    return this.callsService.acceptCall({
-      calleeUserId: calleeUserId,
-      calleeSocketId: calleeSocketId,
+    const result = await this.callsService.acceptCall({
+      calleeUserId: params.calleeUserId,
+      calleeSocketId: params.calleeSocketId,
     });
+
+    if (!result.accepted) {
+      return result;
+    }
+
+    await this.callTimeoutsScheduler.scheduleMaxDurationTimeout({
+      roomId: result.call.roomId,
+      userId: result.call.userId,
+      delayMs: this.maxCallDurationMs,
+    });
+
+    return result;
   }
 
   async registerCallDecline(calleeUserId: string): Promise<CallDeclineResult> {
@@ -150,6 +177,73 @@ export class CallLifecycleService {
     }
 
     return call;
+  }
+
+  async registerRingingTimeout(params: {
+    roomId: string;
+    calleeUserId: string;
+  }): Promise<void> {
+    const result = await this.callsService.timeoutRingingCall({
+      roomId: params.roomId,
+      calleeUserId: params.calleeUserId,
+    });
+
+    if (!result.timedOut) {
+      return;
+    }
+
+    const { timedOutCallerCall, timedOutCalleeCall } = result;
+    const endedAt = new Date();
+
+    await this.createLogFromCall({
+      call: timedOutCallerCall,
+      status: 'no_answer',
+      endedAt,
+    });
+
+    await this.createLogFromCall({
+      call: timedOutCalleeCall,
+      status: 'missed',
+      endedAt,
+    });
+
+    await this.notificationService.createMissedCallNotification({
+      userId: timedOutCalleeCall.userId,
+      callId: timedOutCalleeCall.roomId,
+      fromUserId: timedOutCalleeCall.peerUserId,
+      callType: timedOutCalleeCall.type,
+    });
+  }
+
+  async registerMaxDurationEnd(params: {
+    roomId: string;
+    userId: string;
+  }): Promise<void> {
+    const result = await this.callsService.endCallByRoom({
+      roomId: params.roomId,
+      userId: params.userId,
+    });
+
+    if (!result.ended) {
+      return;
+    }
+
+    const { endedCallerCall, endedCalleeCall } = result;
+    const endedAt = new Date();
+
+    await this.createLogFromCall({
+      call: endedCallerCall,
+      status: 'completed',
+      endedAt,
+      answeredAt: endedCallerCall.acceptedAt,
+    });
+
+    await this.createLogFromCall({
+      call: endedCalleeCall,
+      status: 'completed',
+      endedAt,
+      answeredAt: endedCalleeCall.acceptedAt,
+    });
   }
 
   private async createLogFromCall(params: {

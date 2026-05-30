@@ -10,6 +10,7 @@ import type {
   CallEndResult,
   CallInitParams,
   CallInitResult,
+  CallRingingTimeoutResult,
 } from './calls.types';
 import { Call } from '../../entities/call';
 
@@ -21,7 +22,7 @@ export class CallsService {
   ) {}
 
   private readonly ringingTtlSeconds = 120;
-  private readonly activeTtlSeconds = 21_600;
+  private readonly activeTtlSeconds = 21_800;
 
   private userCallKey(userId: string): string {
     return `calls:user:${userId}`;
@@ -357,6 +358,94 @@ export class CallsService {
       endedCallerCall: call.direction === 'outgoing' ? call : peerCall,
       endedCalleeCall: call.direction === 'incoming' ? call : peerCall,
     };
+  }
+
+  async timeoutRingingCall(params: {
+    calleeUserId: string;
+    roomId: string;
+  }): Promise<CallRingingTimeoutResult> {
+    const calleeCall = await this.getCall(params.calleeUserId);
+
+    if (!calleeCall) {
+      return {
+        timedOut: false,
+        reason: 'not-found',
+      };
+    }
+
+    if (calleeCall.roomId !== params.roomId) {
+      return {
+        timedOut: false,
+        reason: 'unexpected-peer',
+      };
+    }
+
+    const callerCall = await this.getCall(calleeCall.peerUserId);
+
+    if (!callerCall) {
+      return {
+        timedOut: false,
+        reason: 'not-found',
+      };
+    }
+
+    if (callerCall.roomId !== calleeCall.roomId) {
+      return {
+        timedOut: false,
+        reason: 'unexpected-peer',
+      };
+    }
+
+    if (
+      calleeCall.direction !== 'incoming' ||
+      callerCall.direction !== 'outgoing'
+    ) {
+      return {
+        timedOut: false,
+        reason: 'unexpected-peer',
+      };
+    }
+
+    if (calleeCall.status !== 'ringing' || callerCall.status !== 'calling') {
+      return {
+        timedOut: false,
+        reason: 'invalid-status',
+      };
+    }
+
+    await this.deleteCallRoom({
+      roomId: calleeCall.roomId,
+      userIds: [calleeCall.userId, callerCall.userId],
+    });
+
+    return {
+      timedOut: true,
+      timedOutCallerCall: callerCall,
+      timedOutCalleeCall: calleeCall,
+    };
+  }
+
+  async endCallByRoom(params: {
+    userId: string;
+    roomId: string;
+  }): Promise<CallEndResult> {
+    const call = await this.getCall(params.userId);
+
+    if (!call) {
+      return {
+        ended: false,
+        reason: 'not-found',
+      };
+    }
+
+    if (call.roomId !== params.roomId) {
+      return {
+        ended: false,
+        reason: 'unexpected-peer',
+      };
+    }
+
+    return this.endCall(params.userId);
   }
 
   async getCall(userId: string): Promise<Call | null> {

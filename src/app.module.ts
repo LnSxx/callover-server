@@ -20,6 +20,10 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { CallLogsModule } from './modules/call-logs/call-logs.module';
 import { CallCoordinatorModule } from './modules/call-coordinator/call-coordinator.module';
 import { CallLifecycleModule } from './modules/call-lifecycle/call-lifecycle.module';
+import { BullModule } from '@nestjs/bullmq';
+import { REDIS_URL } from './modules/redis/redis.provider';
+import { CallTimeoutsModule } from './modules/call-timeouts/call-timeouts.module';
+import { CallTimeoutsProcessorModule } from './modules/call-timeouts-processor/call-timeouts-processor.module';
 
 @Module({
   imports: [
@@ -50,6 +54,14 @@ import { CallLifecycleModule } from './modules/call-lifecycle/call-lifecycle.mod
     CallLogsModule,
     CallCoordinatorModule,
     CallLifecycleModule,
+    BullModule.forRoot({
+      connection: {
+        host: REDIS_URL.hostname,
+        port: Number(REDIS_URL.port),
+      },
+    }),
+    CallTimeoutsModule,
+    CallTimeoutsProcessorModule,
   ],
   providers: [
     {
