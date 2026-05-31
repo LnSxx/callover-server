@@ -10,7 +10,6 @@ import { Types } from 'mongoose';
 import { ContactsService } from './contacts.service';
 import { Contact } from './schemas/contact.schema';
 import { UsersService } from '../users/users.service';
-import { User } from '../users/schemas/user.schema';
 
 describe('ContactsService', () => {
   let service: ContactsService;
@@ -23,15 +22,19 @@ describe('ContactsService', () => {
     findOneAndDelete: jest.fn(),
   };
 
-  const userModelMock = {
+  const usersServiceMock = {
     findById: jest.fn(),
   };
 
-  const execMock = (value: unknown) => ({
+  const execMock = <T>(value: T) => ({
     exec: jest.fn().mockResolvedValue(value),
   });
 
-  const queryMock = (value: unknown) => ({
+  const rejectedExecMock = (error: unknown) => ({
+    exec: jest.fn().mockRejectedValue(error),
+  });
+
+  const queryMock = <T>(value: T) => ({
     sort: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
     exec: jest.fn().mockResolvedValue(value),
@@ -64,15 +67,14 @@ describe('ContactsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        UsersService,
         ContactsService,
         {
           provide: getModelToken(Contact.name),
           useValue: contactModelMock,
         },
         {
-          provide: getModelToken(User.name),
-          useValue: userModelMock,
+          provide: UsersService,
+          useValue: usersServiceMock,
         },
       ],
     }).compile();
@@ -85,8 +87,8 @@ describe('ContactsService', () => {
   });
 
   describe('create', () => {
-    it('should create contact', async () => {
-      userModelMock.findById.mockReturnValue(execMock(user));
+    it('should create contact with normalized optional fields and default flags', async () => {
+      usersServiceMock.findById.mockResolvedValue(user);
       contactModelMock.create.mockResolvedValue(contact);
 
       const result = await service.create({
@@ -96,8 +98,7 @@ describe('ContactsService', () => {
         note: ' Empress of Russia ',
       });
 
-      expect(userModelMock.findById).toHaveBeenCalledWith(contactUserId);
-
+      expect(usersServiceMock.findById).toHaveBeenCalledWith(contactUserId);
       expect(contactModelMock.create).toHaveBeenCalledWith({
         ownerId,
         contactUserId,
@@ -107,22 +108,30 @@ describe('ContactsService', () => {
         isBlocked: false,
         isMuted: false,
       });
-
       expect(result).toBe(contact);
     });
 
-    it('should throw NotFoundException if contact user does not exist', async () => {
-      userModelMock.findById.mockReturnValue(execMock(null));
+    it('should create contact with provided flags', async () => {
+      usersServiceMock.findById.mockResolvedValue(user);
+      contactModelMock.create.mockResolvedValue(contact);
 
-      await expect(
-        service.create({
-          ownerId,
-          contactUserId,
-        }),
-      ).rejects.toThrow(NotFoundException);
+      await service.create({
+        ownerId,
+        contactUserId,
+        isFavourite: true,
+        isBlocked: true,
+        isMuted: true,
+      });
 
-      expect(userModelMock.findById).toHaveBeenCalledWith(contactUserId);
-      expect(contactModelMock.create).not.toHaveBeenCalled();
+      expect(contactModelMock.create).toHaveBeenCalledWith({
+        ownerId,
+        contactUserId,
+        alias: undefined,
+        note: undefined,
+        isFavourite: true,
+        isBlocked: true,
+        isMuted: true,
+      });
     });
 
     it('should throw BadRequestException if contactUserId is invalid', async () => {
@@ -133,10 +142,11 @@ describe('ContactsService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
 
+      expect(usersServiceMock.findById).not.toHaveBeenCalled();
       expect(contactModelMock.create).not.toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException if owner adds himself', async () => {
+    it('should throw BadRequestException if owner tries to add himself', async () => {
       await expect(
         service.create({
           ownerId,
@@ -144,11 +154,26 @@ describe('ContactsService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
 
+      expect(usersServiceMock.findById).not.toHaveBeenCalled();
+      expect(contactModelMock.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException if contact user does not exist', async () => {
+      usersServiceMock.findById.mockResolvedValue(null);
+
+      await expect(
+        service.create({
+          ownerId,
+          contactUserId,
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(usersServiceMock.findById).toHaveBeenCalledWith(contactUserId);
       expect(contactModelMock.create).not.toHaveBeenCalled();
     });
 
     it('should throw ConflictException on duplicate contact', async () => {
-      userModelMock.findById.mockReturnValue(execMock(user));
+      usersServiceMock.findById.mockResolvedValue(user);
       contactModelMock.create.mockRejectedValue({ code: 11000 });
 
       await expect(
@@ -160,7 +185,7 @@ describe('ContactsService', () => {
     });
 
     it('should throw InternalServerErrorException on unknown mongo error', async () => {
-      userModelMock.findById.mockReturnValue(execMock(user));
+      usersServiceMock.findById.mockResolvedValue(user);
       contactModelMock.create.mockRejectedValue(new Error('mongo failed'));
 
       await expect(
@@ -173,7 +198,7 @@ describe('ContactsService', () => {
   });
 
   describe('find', () => {
-    it('should find contacts with basic owner filter', async () => {
+    it('should find contacts with owner filter, sorting, and limit plus one', async () => {
       const query = queryMock([contact]);
       contactModelMock.find.mockReturnValue(query);
 
@@ -182,22 +207,17 @@ describe('ContactsService', () => {
         limit: 50,
       });
 
-      expect(contactModelMock.find).toHaveBeenCalledWith({
-        ownerId,
-      });
-
+      expect(contactModelMock.find).toHaveBeenCalledWith({ ownerId });
       expect(query.sort).toHaveBeenCalledWith({ updatedAt: 1, _id: 1 });
       expect(query.limit).toHaveBeenCalledWith(51);
-
       expect(result).toEqual({
         items: [contact],
         nextCursor: null,
       });
     });
 
-    it('should apply filters', async () => {
+    it('should apply optional filters', async () => {
       const changedAfter = new Date('2026-04-01T00:00:00.000Z');
-
       const query = queryMock([]);
       contactModelMock.find.mockReturnValue(query);
 
@@ -213,9 +233,7 @@ describe('ContactsService', () => {
 
       expect(contactModelMock.find).toHaveBeenCalledWith({
         ownerId,
-        updatedAt: {
-          $gt: changedAfter,
-        },
+        updatedAt: { $gt: changedAfter },
         isFavourite: true,
         isBlocked: false,
         isMuted: true,
@@ -224,18 +242,46 @@ describe('ContactsService', () => {
           $options: 'i',
         },
       });
-
       expect(query.limit).toHaveBeenCalledWith(21);
+    });
+
+    it('should escape regex special characters in search', async () => {
+      const query = queryMock([]);
+      contactModelMock.find.mockReturnValue(query);
+
+      await service.find({
+        ownerId,
+        search: 'ivan.*+?^${}()|[]\\',
+        limit: 10,
+      });
+
+      expect(contactModelMock.find).toHaveBeenCalledWith({
+        ownerId,
+        alias: {
+          $regex: 'ivan\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\',
+          $options: 'i',
+        },
+      });
+    });
+
+    it('should ignore blank search', async () => {
+      const query = queryMock([]);
+      contactModelMock.find.mockReturnValue(query);
+
+      await service.find({
+        ownerId,
+        search: '   ',
+        limit: 10,
+      });
+
+      expect(contactModelMock.find).toHaveBeenCalledWith({ ownerId });
     });
 
     it('should clamp limit to maximum 100', async () => {
       const query = queryMock([]);
       contactModelMock.find.mockReturnValue(query);
 
-      await service.find({
-        ownerId,
-        limit: 1000,
-      });
+      await service.find({ ownerId, limit: 1000 });
 
       expect(query.limit).toHaveBeenCalledWith(101);
     });
@@ -244,10 +290,7 @@ describe('ContactsService', () => {
       const query = queryMock([]);
       contactModelMock.find.mockReturnValue(query);
 
-      await service.find({
-        ownerId,
-        limit: 0,
-      });
+      await service.find({ ownerId, limit: 0 });
 
       expect(query.limit).toHaveBeenCalledWith(2);
     });
@@ -258,7 +301,6 @@ describe('ContactsService', () => {
         _id: new Types.ObjectId(),
         updatedAt: new Date('2026-04-01T10:00:00.000Z'),
       };
-
       const secondContact = {
         ...contact,
         _id: new Types.ObjectId(),
@@ -268,13 +310,22 @@ describe('ContactsService', () => {
       const query = queryMock([firstContact, secondContact]);
       contactModelMock.find.mockReturnValue(query);
 
-      const result = await service.find({
-        ownerId,
-        limit: 1,
-      });
+      const result = await service.find({ ownerId, limit: 1 });
 
       expect(result.items).toEqual([firstContact]);
       expect(result.nextCursor).toEqual(expect.any(String));
+    });
+
+    it('should return null nextCursor if limit plus one item is not reached', async () => {
+      const query = queryMock([contact]);
+      contactModelMock.find.mockReturnValue(query);
+
+      const result = await service.find({ ownerId, limit: 2 });
+
+      expect(result).toEqual({
+        items: [contact],
+        nextCursor: null,
+      });
     });
 
     it('should apply cursor filter', async () => {
@@ -282,7 +333,6 @@ describe('ContactsService', () => {
         updatedAt: '2026-04-01T10:00:00.000Z',
         id: new Types.ObjectId().toString(),
       };
-
       const cursor = Buffer.from(
         JSON.stringify(cursorPayload),
         'utf8',
@@ -291,76 +341,105 @@ describe('ContactsService', () => {
       const query = queryMock([]);
       contactModelMock.find.mockReturnValue(query);
 
-      await service.find({
-        ownerId,
-        limit: 50,
-        cursor,
-      });
+      await service.find({ ownerId, limit: 50, cursor });
 
       expect(contactModelMock.find).toHaveBeenCalledWith({
         ownerId,
         $or: [
           {
-            updatedAt: {
-              $gt: new Date(cursorPayload.updatedAt),
-            },
+            updatedAt: { $gt: new Date(cursorPayload.updatedAt) },
           },
           {
             updatedAt: new Date(cursorPayload.updatedAt),
-            _id: {
-              $gt: new Types.ObjectId(cursorPayload.id),
-            },
+            _id: { $gt: new Types.ObjectId(cursorPayload.id) },
           },
         ],
       });
     });
 
-    it('should throw BadRequestException if cursor is invalid', async () => {
-      await expect(
-        service.find({
-          ownerId,
-          limit: 50,
-          cursor: 'invalid-cursor',
-        }),
-      ).rejects.toThrow(BadRequestException);
+    it('should combine changedAfter and cursor filters', async () => {
+      const changedAfter = new Date('2026-04-01T00:00:00.000Z');
+      const cursorPayload = {
+        updatedAt: '2026-04-01T10:00:00.000Z',
+        id: new Types.ObjectId().toString(),
+      };
+      const cursor = Buffer.from(
+        JSON.stringify(cursorPayload),
+        'utf8',
+      ).toString('base64url');
+
+      const query = queryMock([]);
+      contactModelMock.find.mockReturnValue(query);
+
+      await service.find({ ownerId, changedAfter, limit: 50, cursor });
+
+      expect(contactModelMock.find).toHaveBeenCalledWith({
+        ownerId,
+        updatedAt: { $gt: changedAfter },
+        $or: [
+          {
+            updatedAt: { $gt: new Date(cursorPayload.updatedAt) },
+          },
+          {
+            updatedAt: new Date(cursorPayload.updatedAt),
+            _id: { $gt: new Types.ObjectId(cursorPayload.id) },
+          },
+        ],
+      });
     });
+
+    it.each([
+      'invalid-cursor',
+      Buffer.from(JSON.stringify({}), 'utf8').toString('base64url'),
+      Buffer.from(
+        JSON.stringify({ updatedAt: 'bad-date', id: new Types.ObjectId() }),
+        'utf8',
+      ).toString('base64url'),
+      Buffer.from(
+        JSON.stringify({ updatedAt: '2026-04-01T10:00:00.000Z', id: 'bad-id' }),
+        'utf8',
+      ).toString('base64url'),
+    ])(
+      'should throw BadRequestException if cursor is invalid: %s',
+      async (cursor) => {
+        await expect(
+          service.find({
+            ownerId,
+            limit: 50,
+            cursor,
+          }),
+        ).rejects.toThrow(BadRequestException);
+      },
+    );
   });
 
   describe('findOne', () => {
     it('should find one contact by ownerId and contactId', async () => {
       contactModelMock.findOne.mockReturnValue(execMock(contact));
 
-      const result = await service.findOne({
-        ownerId,
-        contactId,
-      });
+      const result = await service.findOne({ ownerId, contactId });
 
       expect(contactModelMock.findOne).toHaveBeenCalledWith({
         _id: contactId,
         ownerId,
       });
-
       expect(result).toBe(contact);
     });
 
     it('should throw BadRequestException if contactId is invalid', async () => {
       await expect(
-        service.findOne({
-          ownerId,
-          contactId: 'invalid-id',
-        }),
+        service.findOne({ ownerId, contactId: 'invalid-id' }),
       ).rejects.toThrow(BadRequestException);
+
+      expect(contactModelMock.findOne).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if contact was not found', async () => {
       contactModelMock.findOne.mockReturnValue(execMock(null));
 
-      await expect(
-        service.findOne({
-          ownerId,
-          contactId,
-        }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne({ ownerId, contactId })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -377,7 +456,6 @@ describe('ContactsService', () => {
         ownerId,
         contactUserId,
       });
-
       expect(result).toBe(contact);
     });
 
@@ -385,11 +463,6 @@ describe('ContactsService', () => {
       contactModelMock.findOne.mockReturnValue(execMock(null));
 
       const result = await service.findContactConnection({
-        ownerId,
-        contactUserId,
-      });
-
-      expect(contactModelMock.findOne).toHaveBeenCalledWith({
         ownerId,
         contactUserId,
       });
@@ -409,7 +482,6 @@ describe('ContactsService', () => {
         ownerId,
         contactUserId: 'not-object-id',
       });
-
       expect(result).toBeNull();
     });
   });
@@ -421,9 +493,11 @@ describe('ContactsService', () => {
       const updatedContact = {
         ...contact,
         alias: 'Peter',
+        note: 'New note',
         isFavourite: true,
+        isBlocked: true,
+        isMuted: true,
       };
-
       contactModelMock.findOneAndUpdate.mockReturnValue(
         execMock(updatedContact),
       );
@@ -432,8 +506,10 @@ describe('ContactsService', () => {
         ownerId,
         contactId,
         alias: ' Peter ',
-        note: 'Best friend',
+        note: ' New note ',
         isFavourite: true,
+        isBlocked: true,
+        isMuted: true,
       });
 
       expect(contactModelMock.findOneAndUpdate).toHaveBeenCalledWith(
@@ -444,7 +520,10 @@ describe('ContactsService', () => {
         {
           $set: {
             alias: 'Peter',
+            note: 'New note',
             isFavourite: true,
+            isBlocked: true,
+            isMuted: true,
           },
         },
         {
@@ -452,7 +531,6 @@ describe('ContactsService', () => {
           runValidators: true,
         },
       );
-
       expect(result).toBe(updatedContact);
     });
 
@@ -473,32 +551,60 @@ describe('ContactsService', () => {
       expect(result).toBe(contact);
     });
 
-    it('should throw NotFoundException if contact does not exist', async () => {
+    it('should return existing contact if update params contain no update fields', async () => {
+      contactModelMock.findOne.mockReturnValue(execMock(contact));
+
+      const result = await service.update({ ownerId, contactId });
+
+      expect(contactModelMock.findOneAndUpdate).not.toHaveBeenCalled();
+      expect(result).toBe(contact);
+    });
+
+    it('should throw BadRequestException if contactId is invalid', async () => {
+      await expect(
+        service.update({ ownerId, contactId: 'invalid-id', alias: 'Peter' }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(contactModelMock.findOneAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException if contact does not exist before update', async () => {
       contactModelMock.findOne.mockReturnValue(execMock(null));
 
       await expect(
-        service.update({
-          ownerId,
-          contactId,
-          alias: 'Peter',
-        }),
+        service.update({ ownerId, contactId, alias: 'Peter' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException if contact disappeared during update', async () => {
+      contactModelMock.findOne.mockReturnValue(execMock(contact));
+      contactModelMock.findOneAndUpdate.mockReturnValue(execMock(null));
+
+      await expect(
+        service.update({ ownerId, contactId, alias: 'Peter' }),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException on duplicate mongo error', async () => {
       contactModelMock.findOne.mockReturnValue(execMock(contact));
-
-      contactModelMock.findOneAndUpdate.mockReturnValue({
-        exec: jest.fn().mockRejectedValue({ code: 11000 }),
-      });
+      contactModelMock.findOneAndUpdate.mockReturnValue(
+        rejectedExecMock({ code: 11000 }),
+      );
 
       await expect(
-        service.update({
-          ownerId,
-          contactId,
-          alias: 'Peter',
-        }),
+        service.update({ ownerId, contactId, alias: 'Peter' }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('should throw InternalServerErrorException on unknown mongo error', async () => {
+      contactModelMock.findOne.mockReturnValue(execMock(contact));
+      contactModelMock.findOneAndUpdate.mockReturnValue(
+        rejectedExecMock(new Error('mongo failed')),
+      );
+
+      await expect(
+        service.update({ ownerId, contactId, alias: 'Peter' }),
+      ).rejects.toThrow(InternalServerErrorException);
     });
   });
 
@@ -506,39 +612,29 @@ describe('ContactsService', () => {
     it('should remove contact', async () => {
       contactModelMock.findOneAndDelete.mockReturnValue(execMock(contact));
 
-      const result = await service.remove({
-        ownerId,
-        contactId,
-      });
+      const result = await service.remove({ ownerId, contactId });
 
       expect(contactModelMock.findOneAndDelete).toHaveBeenCalledWith({
         _id: contactId,
         ownerId,
       });
-
-      expect(result).toEqual({
-        isDeleted: true,
-      });
+      expect(result).toEqual({ isDeleted: true });
     });
 
     it('should throw BadRequestException if contactId is invalid', async () => {
       await expect(
-        service.remove({
-          ownerId,
-          contactId: 'invalid-id',
-        }),
+        service.remove({ ownerId, contactId: 'invalid-id' }),
       ).rejects.toThrow(BadRequestException);
+
+      expect(contactModelMock.findOneAndDelete).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if contact was not found', async () => {
       contactModelMock.findOneAndDelete.mockReturnValue(execMock(null));
 
-      await expect(
-        service.remove({
-          ownerId,
-          contactId,
-        }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.remove({ ownerId, contactId })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });
