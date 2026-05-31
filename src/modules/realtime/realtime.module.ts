@@ -4,6 +4,7 @@ import { SessionsModule } from '../sessions/sessions.module';
 import { PresenceModule } from '../presence/presence.module';
 import { PresenceSubscriptionsModule } from '../presence-subsciptions/presence-subscriptions.module';
 import { CallsModule } from '../calls/calls.module';
+import { RealtimeEventBusService } from './realtime-event-bus.service';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { CallsModule } from '../calls/calls.module';
     PresenceSubscriptionsModule,
     CallsModule,
   ],
-  providers: [RealtimeGateway],
+  providers: [RealtimeGateway, RealtimeEventBusService],
+  exports: [RealtimeEventBusService],
 })
 export class RealtimeModule {}

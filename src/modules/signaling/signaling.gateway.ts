@@ -1,6 +1,7 @@
 import {
   ConnectedSocket,
   MessageBody,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -25,6 +26,7 @@ import {
 } from './signaling.types';
 import { CallDeclineMessageDto } from './dto/call-decline.message.dto';
 import { CallCoordinatorService } from '../call-coordinator/call-coordinator.service';
+import { RealtimeEventBusService } from '../realtime/realtime-event-bus.service';
 
 @WebSocketGateway({
   namespace: 'events',
@@ -35,10 +37,15 @@ import { CallCoordinatorService } from '../call-coordinator/call-coordinator.ser
   },
 })
 @UseGuards(RealtimeAuthGuard)
-export class SignalingGateway {
+export class SignalingGateway implements OnGatewayInit<Server> {
   constructor(
     private readonly callCoordinatorService: CallCoordinatorService,
+    private readonly realtimeEventBusService: RealtimeEventBusService,
   ) {}
+
+  afterInit(server: Server): void {
+    this.realtimeEventBusService.setServer(server);
+  }
 
   @WebSocketServer()
   server!: Server;
@@ -81,16 +88,14 @@ export class SignalingGateway {
 
     await client.join(callInitResult.callRoomId);
 
-    for (const socketId of callInitResult.peerSockets) {
-      this.server.to(socketId).emit('message', {
-        type: SignalingEventTypes.CallOffer,
-        payload: {
-          fromUserId: userId,
-          sdp: body.sdp,
-          type: body.type,
-        },
-      } as CallOfferEvent);
-    }
+    this.realtimeEventBusService.emitToSockets(callInitResult.peerSockets, {
+      type: SignalingEventTypes.CallOffer,
+      payload: {
+        fromUserId: userId,
+        sdp: body.sdp,
+        type: body.type,
+      },
+    } as CallOfferEvent);
   }
 
   @UsePipes(
@@ -172,14 +177,12 @@ export class SignalingGateway {
       return;
     }
 
-    for (const socketId of endCallResult.calleeSockets) {
-      this.server.to(socketId).emit('message', {
-        type: SignalingEventTypes.CallCancel,
-        payload: {
-          fromUserId: userId,
-        },
-      } as CallCancelEvent);
-    }
+    this.realtimeEventBusService.emitToSockets(endCallResult.calleeSockets, {
+      type: SignalingEventTypes.CallCancel,
+      payload: {
+        fromUserId: userId,
+      },
+    } as CallCancelEvent);
   }
 
   @UsePipes(

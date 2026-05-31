@@ -23,10 +23,10 @@ export class CallTimeoutsProcessor extends WorkerHost {
     if (job.name === CallTimeoutsJobNames.MaxDurationTimeout) {
       const data = job.data as {
         roomId: string;
-        userId: string;
+        participantUserId: string;
       };
 
-      await this.callLifecycleService.registerMaxDurationEnd(data);
+      await this.callLifecycleService.registerMaxDurationTimeout(data);
     }
   }
 }

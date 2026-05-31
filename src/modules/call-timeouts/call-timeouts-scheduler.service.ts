@@ -29,14 +29,14 @@ export class CallTimeoutsSchedulerService {
 
   async scheduleMaxDurationTimeout(params: {
     roomId: string;
-    userId: string;
+    participantUserId: string;
     delayMs: number;
   }): Promise<void> {
     await this.queue.add(
       CallTimeoutsJobNames.MaxDurationTimeout,
       {
         roomId: params.roomId,
-        userId: params.userId,
+        participantUserId: params.participantUserId,
       },
       {
         delay: params.delayMs,

@@ -14,6 +14,10 @@ import {
 } from '../calls/calls.types';
 import { CallLogStatus } from '../call-logs/types/call-logs.types';
 import { CallTimeoutsSchedulerService } from '../call-timeouts/call-timeouts-scheduler.service';
+import { RealtimeEventBusService } from '../realtime/realtime-event-bus.service';
+import { SignalingEventTypes } from '../signaling/signaling.events';
+import { CallTimeoutEvent } from '../signaling/signaling.types';
+import { PresenceService } from '../presence/presence.service';
 
 @Injectable()
 export class CallLifecycleService {
@@ -22,6 +26,8 @@ export class CallLifecycleService {
     private readonly notificationService: NotificationsService,
     private readonly callLogsService: CallLogsService,
     private readonly callTimeoutsScheduler: CallTimeoutsSchedulerService,
+    private readonly realtimeEventBusService: RealtimeEventBusService,
+    private readonly presenceService: PresenceService,
   ) {}
 
   private readonly ringingTimeoutMs = 90_000;
@@ -57,7 +63,7 @@ export class CallLifecycleService {
 
     await this.callTimeoutsScheduler.scheduleMaxDurationTimeout({
       roomId: result.call.roomId,
-      userId: result.call.userId,
+      participantUserId: result.call.userId,
       delayMs: this.maxCallDurationMs,
     });
 
@@ -183,16 +189,16 @@ export class CallLifecycleService {
     roomId: string;
     calleeUserId: string;
   }): Promise<void> {
-    const result = await this.callsService.timeoutRingingCall({
+    const timeoutResult = await this.callsService.timeoutRingingCall({
       roomId: params.roomId,
       calleeUserId: params.calleeUserId,
     });
 
-    if (!result.timedOut) {
+    if (!timeoutResult.timedOut) {
       return;
     }
 
-    const { timedOutCallerCall, timedOutCalleeCall } = result;
+    const { timedOutCallerCall, timedOutCalleeCall } = timeoutResult;
     const endedAt = new Date();
 
     await this.createLogFromCall({
@@ -213,22 +219,36 @@ export class CallLifecycleService {
       fromUserId: timedOutCalleeCall.peerUserId,
       callType: timedOutCalleeCall.type,
     });
+
+    const timeoutEvent: CallTimeoutEvent = {
+      type: SignalingEventTypes.CallTimeout,
+      payload: {
+        roomId: params.roomId,
+        reason: 'no_answer',
+      },
+    };
+
+    this.realtimeEventBusService.emitToRoom(params.roomId, timeoutEvent);
+    this.realtimeEventBusService.emitToSockets(
+      await this.presenceService.getSocketIdsForUser(timedOutCalleeCall.userId),
+      timeoutEvent,
+    );
   }
 
-  async registerMaxDurationEnd(params: {
+  async registerMaxDurationTimeout(params: {
     roomId: string;
-    userId: string;
+    participantUserId: string;
   }): Promise<void> {
-    const result = await this.callsService.endCallByRoom({
+    const endCallResult = await this.callsService.endCallByRoom({
       roomId: params.roomId,
-      userId: params.userId,
+      userId: params.participantUserId,
     });
 
-    if (!result.ended) {
+    if (!endCallResult.ended) {
       return;
     }
 
-    const { endedCallerCall, endedCalleeCall } = result;
+    const { endedCallerCall, endedCalleeCall } = endCallResult;
     const endedAt = new Date();
 
     await this.createLogFromCall({
@@ -244,6 +264,16 @@ export class CallLifecycleService {
       endedAt,
       answeredAt: endedCalleeCall.acceptedAt,
     });
+
+    const timeoutEvent: CallTimeoutEvent = {
+      type: SignalingEventTypes.CallTimeout,
+      payload: {
+        roomId: params.roomId,
+        reason: 'max_duration',
+      },
+    };
+
+    this.realtimeEventBusService.emitToRoom(params.roomId, timeoutEvent);
   }
 
   private async createLogFromCall(params: {
