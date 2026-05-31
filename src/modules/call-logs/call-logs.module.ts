@@ -4,6 +4,7 @@ import { CallLogsController } from './call-logs.controller';
 import { CallLog, CallLogSchema } from './schemas/call-log.schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CallsModule } from '../calls/calls.module';
+import { CallLoggerService } from './call-logger.service';
 
 @Module({
   imports: [
@@ -11,7 +12,7 @@ import { CallsModule } from '../calls/calls.module';
     CallsModule,
   ],
   controllers: [CallLogsController],
-  providers: [CallLogsService],
-  exports: [CallLogsService],
+  providers: [CallLogsService, CallLoggerService],
+  exports: [CallLogsService, CallLoggerService],
 })
 export class CallLogsModule {}

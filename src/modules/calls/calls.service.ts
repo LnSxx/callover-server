@@ -21,8 +21,8 @@ export class CallsService {
     private readonly redis: RedisClientType,
   ) {}
 
-  private readonly ringingTtlSeconds = 120;
-  private readonly activeTtlSeconds = 21_600 + 300;
+  private readonly ringingTtlSeconds = 120; // 2 minutes
+  private readonly activeTtlSeconds = 21_600 + 300; // 6 hours + 5 minutes
 
   private userCallKey(userId: string): string {
     return `calls:user:${userId}`;

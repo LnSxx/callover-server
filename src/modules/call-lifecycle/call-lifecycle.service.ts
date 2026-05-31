@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CallsService } from '../calls/calls.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { CallLogsService } from '../call-logs/call-logs.service';
 import { Call } from '../../entities/call';
 import {
   CallAcceptParams,
@@ -12,26 +11,22 @@ import {
   CallInitParams,
   CallInitResult,
 } from '../calls/calls.types';
-import { CallLogStatus } from '../call-logs/types/call-logs.types';
 import { CallTimeoutsSchedulerService } from '../call-timeouts/call-timeouts-scheduler.service';
-import { RealtimeEventBusService } from '../realtime/realtime-event-bus.service';
-import { SignalingEventTypes } from '../signaling/signaling.events';
-import { CallTimeoutEvent } from '../signaling/signaling.types';
-import { PresenceService } from '../presence/presence.service';
+import { CallLoggerService } from '../call-logs/call-logger.service';
+import { CallTimeoutNotifierService } from '../call-timeouts-notifier/call-timeouts-notifier.service';
 
 @Injectable()
 export class CallLifecycleService {
   constructor(
     private readonly callsService: CallsService,
     private readonly notificationService: NotificationsService,
-    private readonly callLogsService: CallLogsService,
+    private readonly callLoggerService: CallLoggerService,
     private readonly callTimeoutsScheduler: CallTimeoutsSchedulerService,
-    private readonly realtimeEventBusService: RealtimeEventBusService,
-    private readonly presenceService: PresenceService,
+    private readonly callTimeoutNotifierService: CallTimeoutNotifierService,
   ) {}
 
-  private readonly ringingTimeoutMs = 90_000;
-  private readonly maxCallDurationMs = 21_600_000;
+  private readonly ringingTimeoutMs = 90_000; // 1 minute 30 seconds
+  private readonly maxCallDurationMs = 21_600_000; // 6 hours
 
   async tryStartCall(params: CallInitParams): Promise<CallInitResult> {
     const result = await this.callsService.initiateCall(params);
@@ -83,22 +78,22 @@ export class CallLifecycleService {
     const { declinedCallerCall, declinedCalleeCall } = declineCallResult;
     const endedAt = new Date();
 
-    await this.createLogFromCall({
-      call: declinedCallerCall,
-      status: 'declined',
-      endedAt: endedAt,
-    });
-
-    await this.createLogFromCall({
-      call: declinedCalleeCall,
-      status: 'declined',
-      endedAt: endedAt,
+    await this.callLoggerService.writePair({
+      endedAt,
+      caller: {
+        call: declinedCallerCall,
+        status: 'declined',
+      },
+      callee: {
+        call: declinedCalleeCall,
+        status: 'declined',
+      },
     });
 
     return {
       declined: true,
-      declinedCalleeCall: declinedCalleeCall,
-      declinedCallerCall: declinedCallerCall,
+      declinedCalleeCall,
+      declinedCallerCall,
     };
   }
 
@@ -115,29 +110,22 @@ export class CallLifecycleService {
     const { cancelledCalleeCall, cancelledCallerCall } = cancelCallResult;
     const endedAt = new Date();
 
-    await this.createLogFromCall({
-      call: cancelledCallerCall,
-      status: 'cancelled',
-      endedAt: endedAt,
-    });
-
-    await this.createLogFromCall({
-      call: cancelledCalleeCall,
-      status: 'missed',
-      endedAt: endedAt,
-    });
-
-    await this.notificationService.createMissedCallNotification({
-      userId: cancelledCalleeCall.userId,
-      callId: cancelledCalleeCall.roomId,
-      fromUserId: cancelledCalleeCall.peerUserId,
-      callType: cancelledCalleeCall.type,
+    await this.callLoggerService.writePair({
+      endedAt,
+      caller: {
+        call: cancelledCallerCall,
+        status: 'cancelled',
+      },
+      callee: {
+        call: cancelledCalleeCall,
+        status: 'cancelled',
+      },
     });
 
     return {
       cancelled: true,
-      cancelledCalleeCall: cancelledCalleeCall,
-      cancelledCallerCall: cancelledCallerCall,
+      cancelledCalleeCall,
+      cancelledCallerCall,
     };
   }
 
@@ -154,24 +142,24 @@ export class CallLifecycleService {
     const { endedCallerCall, endedCalleeCall } = endCallResult;
     const endedAt = new Date();
 
-    await this.createLogFromCall({
-      call: endedCallerCall,
-      status: 'completed',
-      endedAt: endedAt,
-      answeredAt: endedCallerCall.acceptedAt,
-    });
-
-    await this.createLogFromCall({
-      call: endedCalleeCall,
-      status: 'completed',
-      endedAt: endedAt,
-      answeredAt: endedCalleeCall.acceptedAt,
+    await this.callLoggerService.writePair({
+      endedAt,
+      caller: {
+        call: endedCallerCall,
+        status: 'completed',
+        answeredAt: endedCallerCall.acceptedAt,
+      },
+      callee: {
+        call: endedCalleeCall,
+        status: 'completed',
+        answeredAt: endedCalleeCall.acceptedAt,
+      },
     });
 
     return {
       ended: true,
-      endedCalleeCall: endedCalleeCall,
-      endedCallerCall: endedCallerCall,
+      endedCalleeCall,
+      endedCallerCall,
     };
   }
 
@@ -201,16 +189,16 @@ export class CallLifecycleService {
     const { timedOutCallerCall, timedOutCalleeCall } = timeoutResult;
     const endedAt = new Date();
 
-    await this.createLogFromCall({
-      call: timedOutCallerCall,
-      status: 'no_answer',
+    await this.callLoggerService.writePair({
       endedAt,
-    });
-
-    await this.createLogFromCall({
-      call: timedOutCalleeCall,
-      status: 'missed',
-      endedAt,
+      caller: {
+        call: timedOutCallerCall,
+        status: 'no_answer',
+      },
+      callee: {
+        call: timedOutCalleeCall,
+        status: 'missed',
+      },
     });
 
     await this.notificationService.createMissedCallNotification({
@@ -220,19 +208,10 @@ export class CallLifecycleService {
       callType: timedOutCalleeCall.type,
     });
 
-    const timeoutEvent: CallTimeoutEvent = {
-      type: SignalingEventTypes.CallTimeout,
-      payload: {
-        roomId: params.roomId,
-        reason: 'no_answer',
-      },
-    };
-
-    this.realtimeEventBusService.emitToRoom(params.roomId, timeoutEvent);
-    this.realtimeEventBusService.emitToSockets(
-      await this.presenceService.getSocketIdsForUser(timedOutCalleeCall.userId),
-      timeoutEvent,
-    );
+    await this.callTimeoutNotifierService.notifyRingingTimeout({
+      roomId: params.roomId,
+      calleeUserId: params.calleeUserId,
+    });
   }
 
   async registerMaxDurationTimeout(params: {
@@ -251,47 +230,22 @@ export class CallLifecycleService {
     const { endedCallerCall, endedCalleeCall } = endCallResult;
     const endedAt = new Date();
 
-    await this.createLogFromCall({
-      call: endedCallerCall,
-      status: 'completed',
+    await this.callLoggerService.writePair({
       endedAt,
-      answeredAt: endedCallerCall.acceptedAt,
-    });
-
-    await this.createLogFromCall({
-      call: endedCalleeCall,
-      status: 'completed',
-      endedAt,
-      answeredAt: endedCalleeCall.acceptedAt,
-    });
-
-    const timeoutEvent: CallTimeoutEvent = {
-      type: SignalingEventTypes.CallTimeout,
-      payload: {
-        roomId: params.roomId,
-        reason: 'max_duration',
+      caller: {
+        call: endedCallerCall,
+        status: 'completed',
+        answeredAt: endedCallerCall.acceptedAt,
       },
-    };
+      callee: {
+        call: endedCalleeCall,
+        status: 'completed',
+        answeredAt: endedCalleeCall.acceptedAt,
+      },
+    });
 
-    this.realtimeEventBusService.emitToRoom(params.roomId, timeoutEvent);
-  }
-
-  private async createLogFromCall(params: {
-    call: Call;
-    status: CallLogStatus;
-    endedAt: Date;
-    answeredAt?: Date;
-  }): Promise<void> {
-    await this.callLogsService.createCallLog({
-      callId: params.call.roomId,
-      userId: params.call.userId,
-      peerUserId: params.call.peerUserId,
-      startedAt: params.call.createdAt,
-      answeredAt: params.answeredAt,
-      endedAt: params.endedAt,
-      direction: params.call.direction,
-      type: params.call.type,
-      status: params.status,
+    this.callTimeoutNotifierService.notifyMaxDurationTimeout({
+      roomId: params.roomId,
     });
   }
 }

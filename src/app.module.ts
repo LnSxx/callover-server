@@ -24,6 +24,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { REDIS_URL } from './modules/redis/redis.provider';
 import { CallTimeoutsModule } from './modules/call-timeouts/call-timeouts.module';
 import { CallTimeoutsProcessorModule } from './modules/call-timeouts-processor/call-timeouts-processor.module';
+import { CallTimeoutsNotifierModule } from './modules/call-timeouts-notifier/call-timeouts-notifier.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { CallTimeoutsProcessorModule } from './modules/call-timeouts-processor/c
     }),
     CallTimeoutsModule,
     CallTimeoutsProcessorModule,
+    CallTimeoutsNotifierModule,
   ],
   providers: [
     {
