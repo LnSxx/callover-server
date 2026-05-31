@@ -49,6 +49,16 @@ export type CallEndEventPayload = {
   fromUserId: string;
 };
 
+export type CallTimeoutEvent = {
+  type: SignalingEventTypes.CallTimeout;
+  payload: CallTimeoutEventPayload;
+};
+
+export type CallTimeoutEventPayload = {
+  roomId: string;
+  reason: 'no_answer' | 'max_duration';
+};
+
 export type CallIceCandidateEvent = {
   type: SignalingEventTypes.CallIceCandidate;
   payload: CallIceCandidateEventPayload;

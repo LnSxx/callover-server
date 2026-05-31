@@ -4,5 +4,6 @@ export enum SignalingEventTypes {
   CallDecline = 'call.decline',
   CallCancel = 'call.cancel',
   CallEnd = 'call.end',
+  CallTimeout = 'call.timeout',
   CallIceCandidate = 'call.ice-candidate',
 }
