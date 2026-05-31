@@ -8,9 +8,17 @@ import cors from 'cors';
 import { HttpExceptionFilter } from './common/errors/http-exception.filter';
 import { validationExceptionFactory } from './common/errors/validation-exception.factory';
 import { json } from 'express';
+import process from 'process';
+import { SocketIoRedisAdapter } from './modules/socket-io-redis-adapter/socket-io-redis-adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  const redisIoAdapter = new SocketIoRedisAdapter(app, process.env.REDIS_URL!);
+
+  await redisIoAdapter.connectToRedis();
+
+  app.useWebSocketAdapter(redisIoAdapter);
 
   const config = new DocumentBuilder()
     .setTitle('Callover API')
@@ -20,6 +28,7 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
+
   app.use(json());
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalPipes(
