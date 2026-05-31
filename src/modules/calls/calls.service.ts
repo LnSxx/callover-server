@@ -22,7 +22,7 @@ export class CallsService {
   ) {}
 
   private readonly ringingTtlSeconds = 120;
-  private readonly activeTtlSeconds = 21_800;
+  private readonly activeTtlSeconds = 21_600 + 300;
 
   private userCallKey(userId: string): string {
     return `calls:user:${userId}`;
@@ -129,6 +129,13 @@ export class CallsService {
       return {
         accepted: false,
         reason: 'not-found',
+      };
+    }
+
+    if (calleeCall.roomId !== callerCall.roomId) {
+      return {
+        accepted: false,
+        reason: 'unexpected-peer',
       };
     }
 
@@ -455,21 +462,26 @@ export class CallsService {
       return null;
     }
 
-    const parsedCall = JSON.parse(rawCall) as Omit<
-      Call,
-      'createdAt' | 'acceptedAt'
-    > & {
-      createdAt: string;
-      acceptedAt?: string;
-    };
+    try {
+      const parsedCall = JSON.parse(rawCall) as Omit<
+        Call,
+        'createdAt' | 'acceptedAt'
+      > & {
+        createdAt: string;
+        acceptedAt?: string;
+      };
 
-    return {
-      ...parsedCall,
-      createdAt: new Date(parsedCall.createdAt),
-      acceptedAt: parsedCall.acceptedAt
-        ? new Date(parsedCall.acceptedAt)
-        : undefined,
-    };
+      return {
+        ...parsedCall,
+        createdAt: new Date(parsedCall.createdAt),
+        acceptedAt: parsedCall.acceptedAt
+          ? new Date(parsedCall.acceptedAt)
+          : undefined,
+      };
+    } catch {
+      await this.redis.del(this.userCallKey(userId));
+      return null;
+    }
   }
 
   async getCurrentRingingCall(userId: string): Promise<Call | null> {
