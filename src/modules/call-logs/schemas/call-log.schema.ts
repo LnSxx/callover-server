@@ -116,3 +116,7 @@ CallLogSchema.index({
   status: 1,
   startedAt: -1,
 });
+
+CallLogSchema.index({ userId: 1, startedAt: -1, _id: -1 });
+
+CallLogSchema.index({ userId: 1, peerUserId: 1, startedAt: -1, _id: -1 });

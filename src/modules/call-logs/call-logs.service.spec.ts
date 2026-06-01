@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
+import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { CallLogsService } from './call-logs.service';
 
@@ -7,14 +8,12 @@ describe('CallLogsService', () => {
 
   let callLogModel: {
     find: jest.Mock;
-    countDocuments: jest.Mock;
     create: jest.Mock;
   };
 
   beforeEach(() => {
     callLogModel = {
       find: jest.fn(),
-      countDocuments: jest.fn(),
       create: jest.fn(),
     };
 
@@ -22,99 +21,357 @@ describe('CallLogsService', () => {
   });
 
   describe('get', () => {
-    it('should return call logs with pagination data', async () => {
+    it('should return first page with nextCursor when there are more items', async () => {
       const userId = new Types.ObjectId().toString();
+
+      const firstItemId = new Types.ObjectId();
+      const secondItemId = new Types.ObjectId();
+      const extraItemId = new Types.ObjectId();
 
       const callLogs = [
         {
+          _id: firstItemId,
           callId: 'call-1',
           userId: new Types.ObjectId(userId),
           peerUserId: new Types.ObjectId(),
+          startedAt: new Date('2026-05-27T10:02:00.000Z'),
           status: 'completed',
+        },
+        {
+          _id: secondItemId,
+          callId: 'call-2',
+          userId: new Types.ObjectId(userId),
+          peerUserId: new Types.ObjectId(),
+          startedAt: new Date('2026-05-27T10:01:00.000Z'),
+          status: 'missed',
+        },
+        {
+          _id: extraItemId,
+          callId: 'call-3',
+          userId: new Types.ObjectId(userId),
+          peerUserId: new Types.ObjectId(),
+          startedAt: new Date('2026-05-27T10:00:00.000Z'),
+          status: 'cancelled',
         },
       ];
 
       const execFind = jest.fn().mockResolvedValue(callLogs);
-      const execCount = jest.fn().mockResolvedValue(10);
-
       const limit = jest.fn().mockReturnValue({ exec: execFind });
-      const skip = jest.fn().mockReturnValue({ limit });
-      const sort = jest.fn().mockReturnValue({ skip });
+      const sort = jest.fn().mockReturnValue({ limit });
 
       callLogModel.find.mockReturnValue({ sort });
-      callLogModel.countDocuments.mockReturnValue({ exec: execCount });
 
       const result = await service.get({
         userId,
-        limit: 50,
-        offset: 0,
+        limit: 2,
       });
 
       expect(callLogModel.find).toHaveBeenCalledWith({
         userId: new Types.ObjectId(userId),
       });
 
-      expect(sort).toHaveBeenCalledWith({ startedAt: -1 });
-      expect(skip).toHaveBeenCalledWith(0);
-      expect(limit).toHaveBeenCalledWith(50);
+      expect(sort).toHaveBeenCalledWith({ startedAt: -1, _id: -1 });
+      expect(limit).toHaveBeenCalledWith(3);
 
-      expect(callLogModel.countDocuments).toHaveBeenCalledWith({
-        userId: new Types.ObjectId(userId),
+      expect(result.data).toEqual([callLogs[0], callLogs[1]]);
+      expect(result.nextCursor).toEqual(
+        Buffer.from(
+          JSON.stringify({
+            startedAt: callLogs[1].startedAt.toISOString(),
+            id: secondItemId.toString(),
+          }),
+          'utf8',
+        ).toString('base64url'),
+      );
+    });
+
+    it('should return null nextCursor when there are no more items', async () => {
+      const userId = new Types.ObjectId().toString();
+
+      const callLogs = [
+        {
+          _id: new Types.ObjectId(),
+          callId: 'call-1',
+          userId: new Types.ObjectId(userId),
+          peerUserId: new Types.ObjectId(),
+          startedAt: new Date('2026-05-27T10:00:00.000Z'),
+          status: 'completed',
+        },
+      ];
+
+      const execFind = jest.fn().mockResolvedValue(callLogs);
+      const limit = jest.fn().mockReturnValue({ exec: execFind });
+      const sort = jest.fn().mockReturnValue({ limit });
+
+      callLogModel.find.mockReturnValue({ sort });
+
+      const result = await service.get({
+        userId,
+        limit: 2,
       });
+
+      expect(limit).toHaveBeenCalledWith(3);
 
       expect(result).toEqual({
         data: callLogs,
-        limit: 50,
-        offset: 0,
-        count: 1,
-        total: 10,
+        nextCursor: null,
       });
+    });
+
+    it('should clamp limit to max 100 and request one extra item', async () => {
+      const userId = new Types.ObjectId().toString();
+
+      const execFind = jest.fn().mockResolvedValue([]);
+      const limit = jest.fn().mockReturnValue({ exec: execFind });
+      const sort = jest.fn().mockReturnValue({ limit });
+
+      callLogModel.find.mockReturnValue({ sort });
+
+      await service.get({
+        userId,
+        limit: 999,
+      });
+
+      expect(limit).toHaveBeenCalledWith(101);
+    });
+
+    it('should clamp limit to min 1 and request one extra item', async () => {
+      const userId = new Types.ObjectId().toString();
+
+      const execFind = jest.fn().mockResolvedValue([]);
+      const limit = jest.fn().mockReturnValue({ exec: execFind });
+      const sort = jest.fn().mockReturnValue({ limit });
+
+      callLogModel.find.mockReturnValue({ sort });
+
+      await service.get({
+        userId,
+        limit: 0,
+      });
+
+      expect(limit).toHaveBeenCalledWith(2);
     });
 
     it('should apply all filters', async () => {
       const userId = new Types.ObjectId().toString();
       const peerUserId = new Types.ObjectId().toString();
-      const startedAfter = new Date('2026-05-01T00:00:00.000Z');
-      const startedBefore = new Date('2026-05-31T23:59:59.000Z');
 
       const execFind = jest.fn().mockResolvedValue([]);
-      const execCount = jest.fn().mockResolvedValue(0);
-
       const limit = jest.fn().mockReturnValue({ exec: execFind });
-      const skip = jest.fn().mockReturnValue({ limit });
-      const sort = jest.fn().mockReturnValue({ skip });
+      const sort = jest.fn().mockReturnValue({ limit });
 
       callLogModel.find.mockReturnValue({ sort });
-      callLogModel.countDocuments.mockReturnValue({ exec: execCount });
 
       await service.get({
         userId,
         peerUserId,
         limit: 20,
-        offset: 10,
         status: 'missed',
         type: 'video',
         direction: 'incoming',
-        startedAfter,
-        startedBefore,
       });
 
       const expectedFilter = {
-        userId: new Types.ObjectId(userId),
-        peerUserId: new Types.ObjectId(peerUserId),
-        status: 'missed',
-        type: 'video',
-        direction: 'incoming',
-        startedAt: {
-          $gte: startedAfter,
-          $lte: startedBefore,
-        },
+        $and: [
+          {
+            userId: new Types.ObjectId(userId),
+          },
+          {
+            peerUserId: new Types.ObjectId(peerUserId),
+          },
+          {
+            status: 'missed',
+          },
+          {
+            type: 'video',
+          },
+          {
+            direction: 'incoming',
+          },
+        ],
       };
 
       expect(callLogModel.find).toHaveBeenCalledWith(expectedFilter);
-      expect(callLogModel.countDocuments).toHaveBeenCalledWith(expectedFilter);
-      expect(skip).toHaveBeenCalledWith(10);
-      expect(limit).toHaveBeenCalledWith(20);
+      expect(sort).toHaveBeenCalledWith({ startedAt: -1, _id: -1 });
+      expect(limit).toHaveBeenCalledWith(21);
+    });
+
+    it('should apply cursor filter for loading older call logs', async () => {
+      const userId = new Types.ObjectId().toString();
+      const cursorId = new Types.ObjectId();
+      const cursorStartedAt = '2026-05-27T10:00:00.000Z';
+
+      const cursor = Buffer.from(
+        JSON.stringify({
+          startedAt: cursorStartedAt,
+          id: cursorId.toString(),
+        }),
+        'utf8',
+      ).toString('base64url');
+
+      const execFind = jest.fn().mockResolvedValue([]);
+      const limit = jest.fn().mockReturnValue({ exec: execFind });
+      const sort = jest.fn().mockReturnValue({ limit });
+
+      callLogModel.find.mockReturnValue({ sort });
+
+      await service.get({
+        userId,
+        limit: 50,
+        cursor,
+      });
+
+      expect(callLogModel.find).toHaveBeenCalledWith({
+        $and: [
+          {
+            userId: new Types.ObjectId(userId),
+          },
+          {
+            $or: [
+              {
+                startedAt: {
+                  $lt: new Date(cursorStartedAt),
+                },
+              },
+              {
+                startedAt: new Date(cursorStartedAt),
+                _id: {
+                  $lt: new Types.ObjectId(cursorId.toString()),
+                },
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(sort).toHaveBeenCalledWith({ startedAt: -1, _id: -1 });
+      expect(limit).toHaveBeenCalledWith(51);
+    });
+
+    it('should apply filters together with cursor', async () => {
+      const userId = new Types.ObjectId().toString();
+      const peerUserId = new Types.ObjectId().toString();
+      const cursorId = new Types.ObjectId();
+      const cursorStartedAt = '2026-05-27T10:00:00.000Z';
+
+      const cursor = Buffer.from(
+        JSON.stringify({
+          startedAt: cursorStartedAt,
+          id: cursorId.toString(),
+        }),
+        'utf8',
+      ).toString('base64url');
+
+      const execFind = jest.fn().mockResolvedValue([]);
+      const limit = jest.fn().mockReturnValue({ exec: execFind });
+      const sort = jest.fn().mockReturnValue({ limit });
+
+      callLogModel.find.mockReturnValue({ sort });
+
+      await service.get({
+        userId,
+        peerUserId,
+        limit: 10,
+        status: 'completed',
+        type: 'audio',
+        direction: 'outgoing',
+        cursor,
+      });
+
+      expect(callLogModel.find).toHaveBeenCalledWith({
+        $and: [
+          {
+            userId: new Types.ObjectId(userId),
+          },
+          {
+            peerUserId: new Types.ObjectId(peerUserId),
+          },
+          {
+            status: 'completed',
+          },
+          {
+            type: 'audio',
+          },
+          {
+            direction: 'outgoing',
+          },
+          {
+            $or: [
+              {
+                startedAt: {
+                  $lt: new Date(cursorStartedAt),
+                },
+              },
+              {
+                startedAt: new Date(cursorStartedAt),
+                _id: {
+                  $lt: new Types.ObjectId(cursorId.toString()),
+                },
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(limit).toHaveBeenCalledWith(11);
+    });
+
+    it('should throw BadRequestException for invalid cursor json', async () => {
+      const userId = new Types.ObjectId().toString();
+
+      await expect(
+        service.get({
+          userId,
+          limit: 50,
+          cursor: 'invalid-cursor',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(callLogModel.find).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException for cursor without valid object id', async () => {
+      const userId = new Types.ObjectId().toString();
+
+      const cursor = Buffer.from(
+        JSON.stringify({
+          startedAt: '2026-05-27T10:00:00.000Z',
+          id: 'invalid-id',
+        }),
+        'utf8',
+      ).toString('base64url');
+
+      await expect(
+        service.get({
+          userId,
+          limit: 50,
+          cursor,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(callLogModel.find).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException for cursor without valid startedAt', async () => {
+      const userId = new Types.ObjectId().toString();
+
+      const cursor = Buffer.from(
+        JSON.stringify({
+          startedAt: 'invalid-date',
+          id: new Types.ObjectId().toString(),
+        }),
+        'utf8',
+      ).toString('base64url');
+
+      await expect(
+        service.get({
+          userId,
+          limit: 50,
+          cursor,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(callLogModel.find).not.toHaveBeenCalled();
     });
   });
 

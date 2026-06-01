@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { CallLog, CallLogDocument } from './schemas/call-log.schema';
 import { Model, Types } from 'mongoose';
@@ -9,6 +9,11 @@ import type {
 } from './types/call-logs.types';
 import { CallDirection, CallType } from '../../entities/call';
 
+type CallLogCursor = {
+  startedAt: string;
+  id: string;
+};
+
 @Injectable()
 export class CallLogsService {
   constructor(
@@ -17,74 +22,75 @@ export class CallLogsService {
   ) {}
 
   async get(params: GetCallLogsParams): Promise<GetCallLogsResult> {
-    const {
-      userId,
-      peerUserId,
-      limit,
-      offset,
-      status,
-      type,
-      direction,
-      startedAfter,
-      startedBefore,
-    } = params;
+    const { userId, peerUserId, limit, status, type, direction, cursor } =
+      params;
 
-    const filter: {
-      userId: Types.ObjectId;
-      peerUserId?: Types.ObjectId;
-      status?: CallLogStatus;
-      type?: CallType;
-      direction?: CallDirection;
-      startedAt?: {
-        $gte?: Date;
-        $lte?: Date;
-      };
-    } = {
-      userId: new Types.ObjectId(userId),
-    };
+    const normalizedLimit = Math.min(Math.max(limit, 1), 100);
+
+    const andFilters: Record<string, unknown>[] = [
+      {
+        userId: new Types.ObjectId(userId),
+      },
+    ];
 
     if (peerUserId) {
-      filter.peerUserId = new Types.ObjectId(peerUserId);
+      andFilters.push({
+        peerUserId: new Types.ObjectId(peerUserId),
+      });
     }
 
     if (status) {
-      filter.status = status;
+      andFilters.push({ status });
     }
 
     if (type) {
-      filter.type = type;
+      andFilters.push({ type });
     }
 
     if (direction) {
-      filter.direction = direction;
+      andFilters.push({ direction });
     }
 
-    if (startedAfter || startedBefore) {
-      filter.startedAt = {};
-      if (startedAfter) {
-        filter.startedAt.$gte = startedAfter;
-      }
-      if (startedBefore) {
-        filter.startedAt.$lte = startedBefore;
-      }
+    if (cursor) {
+      const decodedCursor = this.decodeCursor(cursor);
+      const cursorStartedAt = new Date(decodedCursor.startedAt);
+      const cursorId = new Types.ObjectId(decodedCursor.id);
+
+      andFilters.push({
+        $or: [
+          {
+            startedAt: { $lt: cursorStartedAt },
+          },
+          {
+            startedAt: cursorStartedAt,
+            _id: { $lt: cursorId },
+          },
+        ],
+      });
     }
 
-    const [data, total] = await Promise.all([
-      this.callLogModel
-        .find(filter)
-        .sort({ startedAt: -1 })
-        .skip(offset)
-        .limit(limit)
-        .exec(),
-      this.callLogModel.countDocuments(filter).exec(),
-    ]);
+    const filter =
+      andFilters.length === 1 ? andFilters[0] : { $and: andFilters };
+
+    const items = await this.callLogModel
+      .find(filter)
+      .sort({ startedAt: -1, _id: -1 })
+      .limit(normalizedLimit + 1)
+      .exec();
+
+    const hasNextPage = items.length > normalizedLimit;
+    const pageItems = hasNextPage ? items.slice(0, normalizedLimit) : items;
+    const lastItem = pageItems[pageItems.length - 1];
 
     return {
-      data,
-      limit,
-      offset,
-      count: data.length,
-      total,
+      data: pageItems,
+      nextCursor:
+        hasNextPage && lastItem
+          ? this.encodeCursor({
+              startedAt: lastItem.startedAt.toISOString(),
+              id: lastItem._id.toString(),
+            })
+          : null,
     };
   }
 
@@ -133,5 +139,35 @@ export class CallLogsService {
       durationSeconds,
       ringingDurationSeconds,
     });
+  }
+
+  private encodeCursor(cursor: CallLogCursor): string {
+    return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
+  }
+
+  private decodeCursor(cursor: string): CallLogCursor {
+    try {
+      const decoded = JSON.parse(
+        Buffer.from(cursor, 'base64url').toString('utf8'),
+      ) as CallLogCursor;
+
+      if (
+        !decoded.startedAt ||
+        !decoded.id ||
+        !Types.ObjectId.isValid(decoded.id)
+      ) {
+        throw new Error();
+      }
+
+      const startedAt = new Date(decoded.startedAt);
+
+      if (Number.isNaN(startedAt.getTime())) {
+        throw new Error();
+      }
+
+      return decoded;
+    } catch {
+      throw new BadRequestException('Invalid cursor');
+    }
   }
 }

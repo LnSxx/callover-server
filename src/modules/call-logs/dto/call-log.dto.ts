@@ -3,6 +3,9 @@ import type { CallDirection, CallType } from '../../../entities/call';
 import type { CallLogStatus } from '../types/call-logs.types';
 
 export class CallLogDto {
+  @ApiProperty({ example: 'call-log-id' })
+  id!: string;
+
   @ApiProperty({ example: 'call-id' })
   callId!: string;
 
@@ -57,7 +60,4 @@ export class CallLogDto {
 
   @ApiProperty({ example: '2026-05-27T10:00:00.000Z' })
   createdAt!: string;
-
-  @ApiProperty({ example: '2026-05-27T10:10:00.000Z' })
-  updatedAt!: string;
 }

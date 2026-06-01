@@ -1,10 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsDateString,
+  IsIn,
   IsInt,
   IsMongoId,
   IsOptional,
+  IsString,
   Max,
   Min,
 } from 'class-validator';
@@ -17,7 +18,7 @@ export class GetCallLogsQueryDto {
   })
   @IsOptional()
   @IsMongoId()
-  peerUserId!: string;
+  peerUserId?: string;
 
   @ApiPropertyOptional({ example: 100, default: 100, minimum: 1, maximum: 100 })
   @IsOptional()
@@ -26,13 +27,6 @@ export class GetCallLogsQueryDto {
   @Min(1)
   @Max(100)
   limit?: number;
-
-  @ApiPropertyOptional({ example: 0, default: 0, minimum: 0 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  offset?: number;
 
   @ApiPropertyOptional({
     example: 'completed',
@@ -47,6 +41,7 @@ export class GetCallLogsQueryDto {
     required: false,
   })
   @IsOptional()
+  @IsIn(['completed', 'missed', 'declined', 'cancelled', 'no_answer', 'failed'])
   status?: CallLogStatus;
 
   @ApiPropertyOptional({
@@ -55,6 +50,7 @@ export class GetCallLogsQueryDto {
     required: false,
   })
   @IsOptional()
+  @IsIn(['audio', 'video'])
   type?: CallType;
 
   @ApiPropertyOptional({
@@ -63,15 +59,13 @@ export class GetCallLogsQueryDto {
     required: false,
   })
   @IsOptional()
+  @IsIn(['incoming', 'outgoing'])
   direction?: CallDirection;
 
-  @ApiPropertyOptional({ example: '2026-04-29T10:00:00.000Z' })
+  @ApiPropertyOptional({
+    description: 'Pagination cursor returned by previous response',
+  })
   @IsOptional()
-  @IsDateString({ strict: true })
-  startedAfter?: string;
-
-  @ApiPropertyOptional({ example: '2026-04-29T10:00:00.000Z' })
-  @IsOptional()
-  @IsDateString({ strict: true })
-  startedBefore?: string;
+  @IsString()
+  cursor?: string;
 }
