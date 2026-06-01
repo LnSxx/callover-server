@@ -42,8 +42,11 @@ export class NotificationsService {
       this.notificationModel.countDocuments(filter).exec(),
     ]);
 
+    const totalUnreadCount = await this.getTotalUnreadCountForUser(userId);
+
     return {
       data,
+      totalUnreadCount,
       limit,
       offset,
       count: data.length,
@@ -131,7 +134,12 @@ export class NotificationsService {
     return expiresAt;
   }
 
-  async markAsRead(userId: string, notificationIds: string[]): Promise<void> {
+  async markAsRead(
+    userId: string,
+    notificationIds: string[],
+  ): Promise<{
+    unreadRemain: number;
+  }> {
     await this.notificationModel.updateMany(
       {
         _id: { $in: notificationIds },
@@ -142,5 +150,15 @@ export class NotificationsService {
         readAt: new Date(),
       },
     );
+
+    const unreadRemain = await this.getTotalUnreadCountForUser(userId);
+
+    return { unreadRemain };
+  }
+
+  async getTotalUnreadCountForUser(userId: string): Promise<number> {
+    const filter = { userId };
+    const total = await this.notificationModel.countDocuments(filter).exec();
+    return total;
   }
 }

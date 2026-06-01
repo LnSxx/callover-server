@@ -9,6 +9,7 @@ export type GetNotificationsParams = {
 
 export type GetNotificationsResult = {
   data: NotificationDocument[];
+  totalUnreadCount: number;
   limit: number;
   offset: number;
   count: number;

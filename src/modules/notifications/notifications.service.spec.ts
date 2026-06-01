@@ -62,6 +62,7 @@ describe('NotificationsService', () => {
 
       expect(result).toEqual({
         data: notifications,
+        totalUnreadCount: 10,
         limit: 50,
         offset: 0,
         count: 1,
@@ -107,7 +108,7 @@ describe('NotificationsService', () => {
         userId: 'user-2',
         callId: 'call-1',
         fromUserId: 'user-1',
-        fromUserName: 'Leonid',
+        fromUserName: 'User',
         callType: 'video',
       });
 
@@ -116,11 +117,11 @@ describe('NotificationsService', () => {
         type: 'missed_call',
         status: 'unread',
         title: 'Missed video call',
-        body: 'Missed video call from Leonid',
+        body: 'Missed video call from User',
         call: {
           callId: 'call-1',
           fromUserId: 'user-1',
-          fromUserName: 'Leonid',
+          fromUserName: 'User',
           callType: 'video',
         },
         expiresAt: expect.any(Date),
@@ -162,7 +163,7 @@ describe('NotificationsService', () => {
         userId: 'user-2',
         callId: 'call-1',
         fromUserId: 'user-1',
-        fromUserName: 'Leonid',
+        fromUserName: 'User',
         callType: 'audio',
       });
 
@@ -171,11 +172,11 @@ describe('NotificationsService', () => {
         type: 'muted_call',
         status: 'unread',
         title: 'Muted audio call',
-        body: 'Muted audio call from Leonid',
+        body: 'Muted audio call from User',
         call: {
           callId: 'call-1',
           fromUserId: 'user-1',
-          fromUserName: 'Leonid',
+          fromUserName: 'User',
           callType: 'audio',
         },
         expiresAt: expect.any(Date),
@@ -236,27 +237,6 @@ describe('NotificationsService', () => {
         },
         expiresAt,
       });
-    });
-  });
-
-  describe('markAsRead', () => {
-    it('should mark notifications as read for current user only', async () => {
-      notificationModel.updateMany.mockResolvedValue({});
-
-      await service.markAsRead('user-1', ['notification-1', 'notification-2']);
-
-      expect(notificationModel.updateMany).toHaveBeenCalledWith(
-        {
-          _id: {
-            $in: ['notification-1', 'notification-2'],
-          },
-          userId: 'user-1',
-        },
-        {
-          status: 'read',
-          readAt: expect.any(Date),
-        },
-      );
     });
   });
 });

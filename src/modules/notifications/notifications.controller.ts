@@ -7,6 +7,7 @@ import { GetNotificationsResponseDto } from './dto/get-notifications-response.dt
 import { NotificationDocument } from './schemas/notification.schema';
 import { NotificationDto } from './dto/notification.dto';
 import { MarkNotificationsAsReadDto } from './dto/mark-notifications-as-read.dto';
+import { MarkNotificationsAsReadResponseDto } from './dto/mark-notifications-as-read.response.dto';
 
 @Controller('notifications')
 export class NotificationsController {
@@ -39,6 +40,7 @@ export class NotificationsController {
       data: result.data.map((notification) =>
         this.toNotificationDto(notification),
       ),
+      totalUnreadCount: result.totalUnreadCount,
       pagination: {
         limit: result.limit,
         offset: result.offset,
@@ -64,8 +66,15 @@ export class NotificationsController {
   async markAsRead(
     @CurrentUser() user: { id: string },
     @Body() body: MarkNotificationsAsReadDto,
-  ): Promise<void> {
-    await this.notificationsService.markAsRead(user.id, body.notificationIds);
+  ): Promise<MarkNotificationsAsReadResponseDto> {
+    const result = await this.notificationsService.markAsRead(
+      user.id,
+      body.notificationIds,
+    );
+
+    return {
+      unreadRemain: result.unreadRemain,
+    };
   }
 
   private buildPaginationUrl({

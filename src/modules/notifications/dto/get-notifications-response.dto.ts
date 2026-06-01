@@ -6,6 +6,9 @@ export class GetNotificationsResponseDto {
   @ApiProperty({ type: [NotificationDto] })
   data!: NotificationDto[];
 
+  @ApiProperty({ type: Number, example: 50 })
+  totalUnreadCount!: number;
+
   @ApiProperty({
     example: {
       limit: 50,
