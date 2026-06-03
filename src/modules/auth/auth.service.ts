@@ -120,9 +120,7 @@ export class AuthService {
     await this.notificationsService.createServiceNotification({
       userId: newUser.id,
       title: 'Welcome to Callover!',
-      payload: {
-        body: 'Thank you for registering. We hope you enjoy using Callover.',
-      },
+      body: 'Thank you for registering. We hope you enjoy using Callover.',
     });
 
     return {

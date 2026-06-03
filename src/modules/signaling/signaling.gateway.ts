@@ -223,18 +223,14 @@ export class SignalingGateway implements OnGatewayInit<Server> {
     @ConnectedSocket() client: AuthedSocket,
   ) {
     const fromUserId = this.getUserIdOrDisconnect(client);
-    if (!fromUserId) return;
-
-    const activeCallRoomId =
-      await this.callCoordinatorService.getCallRoomIdForUserIfHasActiveCall(
-        fromUserId,
-      );
-
-    if (!activeCallRoomId) {
+    if (!fromUserId) {
       return;
     }
 
-    client.to(activeCallRoomId).emit('message', {
+    const targetSockets =
+      await this.callCoordinatorService.getUserActiveSockets(body.toUserId);
+
+    this.realtimeEventBusService.emitToSockets(targetSockets, {
       type: SignalingEventTypes.CallIceCandidate,
       payload: {
         fromUserId,

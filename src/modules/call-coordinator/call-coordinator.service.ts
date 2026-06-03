@@ -109,4 +109,10 @@ export class CallCoordinatorService {
     const call = await this.callLifecycleService.getActiveCall(userId);
     return call?.roomId || null;
   }
+
+  async getUserActiveSockets(userId: string): Promise<string[]> {
+    const sockets = await this.presenceService.getSocketIdsForUser(userId);
+
+    return sockets;
+  }
 }
