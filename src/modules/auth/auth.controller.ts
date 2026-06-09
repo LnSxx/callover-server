@@ -15,6 +15,7 @@ import { RegisterDto } from './dto/register.dto';
 import { SignInResponseDto } from './dto/sign-in.response.dto';
 import { RegisterResponseDto } from './dto/register.response.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { getCookieSameSite, getCookieSecure } from '../../config/app.config';
 
 @Controller('auth')
 export class AuthController {
@@ -91,9 +92,10 @@ export class AuthController {
     res.cookie('sessionId', sessionId, {
       httpOnly: true,
       signed: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: getCookieSameSite(),
+      secure: getCookieSecure(),
       expires,
+      path: '/',
     });
   }
 
@@ -101,9 +103,10 @@ export class AuthController {
     res.cookie('sessionId', '', {
       httpOnly: true,
       signed: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: getCookieSameSite(),
+      secure: getCookieSecure(),
       expires: new Date(0),
+      path: '/',
     });
   }
 }

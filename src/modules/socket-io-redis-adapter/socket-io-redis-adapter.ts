@@ -10,6 +10,7 @@ export class SocketIoRedisAdapter extends IoAdapter {
   constructor(
     app: INestApplicationContext,
     private readonly redisUrl: string,
+    private readonly serverOptions: Partial<ServerOptions> = {},
   ) {
     super(app);
   }
@@ -26,7 +27,14 @@ export class SocketIoRedisAdapter extends IoAdapter {
   }
 
   createIOServer(port: number, options?: ServerOptions): Server {
-    const server = super.createIOServer(port, options) as Server;
+    const server = super.createIOServer(port, {
+      ...options,
+      ...this.serverOptions,
+      cors: {
+        ...options?.cors,
+        ...this.serverOptions.cors,
+      },
+    }) as Server;
 
     if (this.adapterConstructor) {
       server.adapter(this.adapterConstructor);

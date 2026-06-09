@@ -31,10 +31,6 @@ import {
 @WebSocketGateway({
   namespace: 'events',
   transports: ['websocket'],
-  cors: {
-    origin: ['http://localhost:5173'],
-    credentials: true,
-  },
 })
 @UseGuards(RealtimeAuthGuard)
 export class RealtimeGateway
