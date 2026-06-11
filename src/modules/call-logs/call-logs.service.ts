@@ -141,6 +141,16 @@ export class CallLogsService {
     });
   }
 
+  async deleteAllCallLogsForUserId(
+    userId: string,
+  ): Promise<{ deletedCount: number }> {
+    const result = await this.callLogModel.deleteMany({ userId }).exec();
+
+    return {
+      deletedCount: result.deletedCount,
+    };
+  }
+
   private encodeCursor(cursor: CallLogCursor): string {
     return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
   }

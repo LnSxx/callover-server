@@ -156,6 +156,16 @@ export class NotificationsService {
     return { unreadRemain };
   }
 
+  async deleteAllNotificationsForUserId(
+    userId: string,
+  ): Promise<{ deletedCount: number }> {
+    const result = await this.notificationModel.deleteMany({ userId }).exec();
+
+    return {
+      deletedCount: result.deletedCount,
+    };
+  }
+
   async getTotalUnreadCountForUser(userId: string): Promise<number> {
     const filter = { userId };
     const total = await this.notificationModel.countDocuments(filter).exec();

@@ -1,12 +1,13 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { CallLogsService } from './call-logs.service';
-import { ApiQuery } from '@nestjs/swagger';
+import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { GetCallLogsQueryDto } from './dto/get-call-logs-query.dto';
 import { GetCallLogsResponseDto } from './dto/get-call-logs-response.dto';
 import { CallLogDocument } from './schemas/call-log.schema';
 import { CallLogDto } from './dto/call-log.dto';
 
+@ApiTags('Call Logs')
 @Controller('call-logs')
 export class CallLogsController {
   constructor(private readonly callLogsService: CallLogsService) {}

@@ -267,6 +267,18 @@ export class ContactsService {
     };
   }
 
+  async deleteAllContactsForUserId(
+    userId: string,
+  ): Promise<{ deletedCount: number }> {
+    const result = await this.contactModel
+      .deleteMany({ ownerId: userId })
+      .exec();
+
+    return {
+      deletedCount: result.deletedCount,
+    };
+  }
+
   private handleMongoError(error: unknown): never {
     if (this.isDuplicateKeyError(error)) {
       throw new ConflictException('Contact already exists');
