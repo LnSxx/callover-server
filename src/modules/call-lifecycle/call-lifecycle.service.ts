@@ -51,6 +51,7 @@ export class CallLifecycleService {
     const result = await this.callsService.acceptCall({
       calleeUserId: params.calleeUserId,
       calleeSocketId: params.calleeSocketId,
+      remoteDescription: params.remoteDescription,
     });
 
     if (!result.accepted) {

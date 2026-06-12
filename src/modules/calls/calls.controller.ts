@@ -6,6 +6,8 @@ import { CallDto } from './dto/call.dto';
 import { GetCurrentRingingCallResponseDto } from './dto/get-current-ringing-call-response.dto';
 import { PendingIceCandidate } from '../../entities/pending-ice-candidate';
 import { PendingIceCandidateDto } from './dto/pending-ice-candidate.dto';
+import { RemoteDescription } from '../../entities/remote-description';
+import { RemoteDescriptionDto } from './dto/remote-description.dto';
 
 @Controller('calls')
 export class CallsController {
@@ -36,6 +38,9 @@ export class CallsController {
       status: call.status,
       createdAt: call.createdAt.toISOString(),
       acceptedAt: call.acceptedAt?.toISOString(),
+      remoteDescription: call.remoteDescription
+        ? this.toRemoteDescriptionDto(call.remoteDescription)
+        : undefined,
     };
   }
 
@@ -48,6 +53,15 @@ export class CallsController {
       sdpMLineIndex: candidate.sdpMLineIndex,
       sdpMid: candidate.sdpMid,
       createdAt: candidate.createdAt.toISOString(),
+    };
+  }
+
+  private toRemoteDescriptionDto(
+    remoteDescription: RemoteDescription,
+  ): RemoteDescriptionDto {
+    return {
+      type: remoteDescription.type,
+      sdp: remoteDescription.sdp,
     };
   }
 }

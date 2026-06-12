@@ -76,6 +76,10 @@ export class SignalingGateway implements OnGatewayInit<Server> {
       toUserId: body.toUserId,
       socketId: client.id,
       type: body.type,
+      remoteDescription: {
+        type: 'offer',
+        sdp: body.sdp,
+      },
     });
 
     if (!callInitResult.success) {
@@ -110,6 +114,10 @@ export class SignalingGateway implements OnGatewayInit<Server> {
     const acceptedCallResult = await this.callCoordinatorService.acceptCall({
       calleeUserId: userId,
       calleeSocketId: client.id,
+      remoteDescription: {
+        type: 'answer',
+        sdp: body.sdp,
+      },
     });
 
     if (!acceptedCallResult.accepted) {

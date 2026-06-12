@@ -72,6 +72,7 @@ export class CallCoordinatorService {
     return this.callLifecycleService.registerCallAccept({
       calleeUserId: params.calleeUserId,
       calleeSocketId: params.calleeSocketId,
+      remoteDescription: params.remoteDescription,
     });
   }
 
