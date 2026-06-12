@@ -13,6 +13,8 @@ import type {
   CallRingingTimeoutResult,
 } from './calls.types';
 import { Call } from '../../entities/call';
+import { PendingIceCandidate } from '../../entities/pending-ice-candidate';
+import { IceCandidate } from '../../entities/ice-candidate';
 
 @Injectable()
 export class CallsService {
@@ -30,6 +32,13 @@ export class CallsService {
 
   private roomUsersKey(roomId: string): string {
     return `calls:room:${roomId}:users`;
+  }
+
+  private pendingIceCandidatesKey(
+    roomId: string,
+    targetUserId: string,
+  ): string {
+    return `calls:room:${roomId}:pending-ice:${targetUserId}`;
   }
 
   async initiateCall(params: CallInitParams): Promise<CallInitResult> {
@@ -484,14 +493,84 @@ export class CallsService {
     }
   }
 
-  async getCurrentRingingCall(userId: string): Promise<Call | null> {
+  async getCurrentRingingCall(userId: string): Promise<{
+    call: Call | null;
+    pendingIceCandidates: PendingIceCandidate[];
+  }> {
     const call = await this.getCall(userId);
 
     if (!call || call.status !== 'ringing') {
-      return null;
+      return {
+        call: null,
+        pendingIceCandidates: [],
+      };
     }
 
-    return call;
+    const pendingIceCandidates = await this.getPendingIceCandidates({
+      roomId: call.roomId,
+      targetUserId: userId,
+    });
+
+    return {
+      call,
+      pendingIceCandidates: pendingIceCandidates,
+    };
+  }
+
+  async addPendingIceCandidate(params: {
+    roomId: string;
+    targetUserId: string;
+    candidate: IceCandidate;
+  }): Promise<void> {
+    const key = this.pendingIceCandidatesKey(
+      params.roomId,
+      params.targetUserId,
+    );
+
+    const pendingCandidate: PendingIceCandidate = {
+      ...params.candidate,
+      createdAt: new Date(),
+    };
+
+    await this.redis
+      .multi()
+      .rPush(key, JSON.stringify(pendingCandidate))
+      .lTrim(key, -100, -1)
+      .expire(key, this.ringingTtlSeconds)
+      .exec();
+  }
+
+  async getPendingIceCandidates(params: {
+    roomId: string;
+    targetUserId: string;
+  }): Promise<PendingIceCandidate[]> {
+    const rawCandidates = await this.redis.lRange(
+      this.pendingIceCandidatesKey(params.roomId, params.targetUserId),
+      0,
+      -1,
+    );
+
+    const candidates: PendingIceCandidate[] = [];
+
+    for (const rawCandidate of rawCandidates) {
+      try {
+        const parsedCandidate = JSON.parse(rawCandidate) as Omit<
+          PendingIceCandidate,
+          'createdAt'
+        > & {
+          createdAt: string;
+        };
+
+        candidates.push({
+          ...parsedCandidate,
+          createdAt: new Date(parsedCandidate.createdAt),
+        });
+      } catch {
+        continue;
+      }
+    }
+
+    return candidates;
   }
 
   private async deleteCallRoom(params: {
@@ -508,6 +587,7 @@ export class CallsService {
 
     for (const userId of userIdsToDelete) {
       multi.del(this.userCallKey(userId));
+      multi.del(this.pendingIceCandidatesKey(params.roomId, userId));
     }
 
     multi.del(this.roomUsersKey(params.roomId));

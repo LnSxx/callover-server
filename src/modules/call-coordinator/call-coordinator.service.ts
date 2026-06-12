@@ -13,6 +13,7 @@ import {
   CallEndResult,
   CallInitParams,
 } from '../calls/calls.types';
+import { IceCandidate } from '../../entities/ice-candidate';
 
 @Injectable()
 export class CallCoordinatorService {
@@ -114,5 +115,33 @@ export class CallCoordinatorService {
     const sockets = await this.presenceService.getSocketIdsForUser(userId);
 
     return sockets;
+  }
+
+  async handleIceCandidate({
+    fromUserId,
+    candidate,
+  }: {
+    fromUserId: string;
+    candidate: IceCandidate;
+  }): Promise<string[]> {
+    const call = await this.callLifecycleService.getActiveCall(fromUserId);
+
+    if (!call) {
+      return [];
+    }
+
+    const targetUserId = call.peerUserId;
+
+    await this.callLifecycleService.addPendingIceCandidateForUser({
+      roomId: call.roomId,
+      targetUserId,
+      candidate,
+    });
+
+    if (call.direction === 'incoming' && call.peerSocketId) {
+      return [call.peerSocketId];
+    }
+
+    return this.getUserActiveSockets(targetUserId);
   }
 }

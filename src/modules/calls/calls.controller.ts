@@ -4,6 +4,8 @@ import { CallsService } from './calls.service';
 import { Call } from '../../entities/call';
 import { CallDto } from './dto/call.dto';
 import { GetCurrentRingingCallResponseDto } from './dto/get-current-ringing-call-response.dto';
+import { PendingIceCandidate } from '../../entities/pending-ice-candidate';
+import { PendingIceCandidateDto } from './dto/pending-ice-candidate.dto';
 
 @Controller('calls')
 export class CallsController {
@@ -13,10 +15,13 @@ export class CallsController {
   async getCurrentRingingCall(
     @CurrentUser() user: { id: string },
   ): Promise<GetCurrentRingingCallResponseDto> {
-    const call = await this.callsService.getCurrentRingingCall(user.id);
+    const result = await this.callsService.getCurrentRingingCall(user.id);
 
     return {
-      call: call ? this.toCallDto(call) : null,
+      call: result.call ? this.toCallDto(result.call) : null,
+      pendingIceCandidates: result.pendingIceCandidates.map((candidate) =>
+        this.toPendingIceCandidateDto(candidate),
+      ),
     };
   }
 
@@ -31,6 +36,18 @@ export class CallsController {
       status: call.status,
       createdAt: call.createdAt.toISOString(),
       acceptedAt: call.acceptedAt?.toISOString(),
+    };
+  }
+
+  private toPendingIceCandidateDto(
+    candidate: PendingIceCandidate,
+  ): PendingIceCandidateDto {
+    return {
+      fromUserId: candidate.fromUserId,
+      sdp: candidate.sdp,
+      sdpMLineIndex: candidate.sdpMLineIndex,
+      sdpMid: candidate.sdpMid,
+      createdAt: candidate.createdAt.toISOString(),
     };
   }
 }

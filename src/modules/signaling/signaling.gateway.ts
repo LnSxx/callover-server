@@ -223,17 +223,21 @@ export class SignalingGateway implements OnGatewayInit<Server> {
       return;
     }
 
-    const targetSockets =
-      await this.callCoordinatorService.getUserActiveSockets(body.toUserId);
+    const iceCandidate = {
+      fromUserId,
+      sdp: body.sdp,
+      sdpMLineIndex: body.sdpMLineIndex,
+      sdpMid: body.sdpMid,
+    };
+
+    const targetSockets = await this.callCoordinatorService.handleIceCandidate({
+      fromUserId: fromUserId,
+      candidate: iceCandidate,
+    });
 
     this.realtimeEventBusService.emitToSockets(targetSockets, {
       type: SignalingEventTypes.CallIceCandidate,
-      payload: {
-        fromUserId,
-        sdp: body.sdp,
-        sdpMLineIndex: body.sdpMLineIndex,
-        sdpMid: body.sdpMid,
-      },
+      payload: iceCandidate,
     } as CallIceCandidateEvent);
   }
 }

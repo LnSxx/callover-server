@@ -14,6 +14,7 @@ import {
 import { CallTimeoutsSchedulerService } from '../call-timeouts/call-timeouts-scheduler.service';
 import { CallLoggerService } from '../call-logs/call-logger.service';
 import { CallTimeoutNotifierService } from '../call-timeouts-notifier/call-timeouts-notifier.service';
+import { IceCandidate } from '../../entities/ice-candidate';
 
 @Injectable()
 export class CallLifecycleService {
@@ -246,6 +247,22 @@ export class CallLifecycleService {
 
     this.callTimeoutNotifierService.notifyMaxDurationTimeout({
       roomId: params.roomId,
+    });
+  }
+
+  async addPendingIceCandidateForUser({
+    roomId,
+    targetUserId,
+    candidate,
+  }: {
+    roomId: string;
+    targetUserId: string;
+    candidate: IceCandidate;
+  }): Promise<void> {
+    await this.callsService.addPendingIceCandidate({
+      roomId,
+      targetUserId,
+      candidate,
     });
   }
 }
