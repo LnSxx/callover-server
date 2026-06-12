@@ -1,4 +1,4 @@
-import { IceCandidate } from './../../dist/entities/ice-candidate.d';
+import { IceCandidate } from './ice-candidate';
 
 export type PendingIceCandidate = IceCandidate & {
   createdAt: Date;

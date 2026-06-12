@@ -23,7 +23,6 @@ export class PushTokensService {
     platform,
     token,
     bundleId,
-    deviceId,
     appVersion,
   }: {
     userId: string;
@@ -31,7 +30,6 @@ export class PushTokensService {
     platform: PushTokenPlatform;
     token: string;
     bundleId: string;
-    deviceId: string;
     appVersion: string;
   }): Promise<{ saved: boolean }> {
     const appEnv = getAppEnv();
@@ -53,7 +51,6 @@ export class PushTokensService {
             token,
             bundleId,
             environment,
-            deviceId,
             appVersion,
             isActive: true,
           },

@@ -24,11 +24,6 @@ export class RegisterPushTokenDto {
   @IsNotEmpty()
   bundleId!: string;
 
-  @ApiProperty({ example: 'local-installation-id' })
-  @IsString()
-  @IsNotEmpty()
-  deviceId!: string;
-
   @ApiProperty({ example: '1.0.0' })
   @IsString()
   @IsNotEmpty()
