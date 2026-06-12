@@ -125,7 +125,7 @@ export class CallCoordinatorService {
     fromUserId: string;
     candidate: IceCandidate;
   }): Promise<string[]> {
-    const call = await this.callLifecycleService.getActiveCall(fromUserId);
+    const call = await this.callLifecycleService.getCurrentCall(fromUserId);
 
     if (!call) {
       return [];

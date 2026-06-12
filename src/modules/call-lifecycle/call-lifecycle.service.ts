@@ -175,6 +175,10 @@ export class CallLifecycleService {
     return call;
   }
 
+  async getCurrentCall(userId: string): Promise<Call | null> {
+    return this.callsService.getCall(userId);
+  }
+
   async registerRingingTimeout(params: {
     roomId: string;
     calleeUserId: string;

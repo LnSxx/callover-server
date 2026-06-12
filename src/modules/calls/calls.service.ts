@@ -556,10 +556,7 @@ export class CallsService {
 
     for (const rawCandidate of rawCandidates) {
       try {
-        const parsedCandidate = JSON.parse(rawCandidate) as Omit<
-          PendingIceCandidate,
-          'createdAt'
-        > & {
+        const parsedCandidate = JSON.parse(rawCandidate) as IceCandidate & {
           createdAt: string;
         };
 
