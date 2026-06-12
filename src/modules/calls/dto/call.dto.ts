@@ -14,20 +14,10 @@ export class CallDto {
   })
   userId!: string;
 
-  @ApiPropertyOptional({
-    example: 'socket-id',
-  })
-  socketId?: string;
-
   @ApiProperty({
     example: 'peer-user-id',
   })
   peerUserId!: string;
-
-  @ApiPropertyOptional({
-    example: 'peer-socket-id',
-  })
-  peerSocketId?: string;
 
   @ApiProperty({
     example: 'room-id',

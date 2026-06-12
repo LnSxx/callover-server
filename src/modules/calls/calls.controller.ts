@@ -31,9 +31,7 @@ export class CallsController {
     return {
       type: call.type,
       userId: call.userId,
-      socketId: call.socketId,
       peerUserId: call.peerUserId,
-      peerSocketId: call.peerSocketId,
       roomId: call.roomId,
       status: call.status,
       createdAt: call.createdAt.toISOString(),
@@ -52,7 +50,6 @@ export class CallsController {
       sdp: candidate.sdp,
       sdpMLineIndex: candidate.sdpMLineIndex,
       sdpMid: candidate.sdpMid,
-      createdAt: candidate.createdAt.toISOString(),
     };
   }
 
