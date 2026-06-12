@@ -12,7 +12,4 @@ export class PendingIceCandidateDto {
 
   @ApiPropertyOptional()
   sdpMid?: string;
-
-  @ApiProperty()
-  createdAt!: string;
 }

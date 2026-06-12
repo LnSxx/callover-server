@@ -51,6 +51,7 @@ export class CallLifecycleService {
     const result = await this.callsService.acceptCall({
       calleeUserId: params.calleeUserId,
       calleeSocketId: params.calleeSocketId,
+      remoteDescription: params.remoteDescription,
     });
 
     if (!result.accepted) {
@@ -172,6 +173,10 @@ export class CallLifecycleService {
     }
 
     return call;
+  }
+
+  async getCurrentCall(userId: string): Promise<Call | null> {
+    return this.callsService.getCall(userId);
   }
 
   async registerRingingTimeout(params: {

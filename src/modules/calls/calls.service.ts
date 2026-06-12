@@ -42,7 +42,7 @@ export class CallsService {
   }
 
   async initiateCall(params: CallInitParams): Promise<CallInitResult> {
-    const { type, fromUserId, toUserId, socketId } = params;
+    const { type, fromUserId, toUserId, socketId, remoteDescription } = params;
 
     if (fromUserId === toUserId) {
       return {
@@ -92,6 +92,7 @@ export class CallsService {
       roomId: callId,
       status: 'ringing',
       createdAt,
+      remoteDescription,
     };
 
     await this.redis
@@ -114,7 +115,7 @@ export class CallsService {
   }
 
   async acceptCall(params: CallAcceptParams): Promise<CallAcceptResult> {
-    const { calleeUserId, calleeSocketId } = params;
+    const { calleeUserId, calleeSocketId, remoteDescription } = params;
 
     const calleeCall = await this.getCall(calleeUserId);
 
@@ -180,6 +181,7 @@ export class CallsService {
       peerSocketId: calleeSocketId,
       status: 'active',
       acceptedAt,
+      remoteDescription,
     };
 
     await this.redis
@@ -554,10 +556,7 @@ export class CallsService {
 
     for (const rawCandidate of rawCandidates) {
       try {
-        const parsedCandidate = JSON.parse(rawCandidate) as Omit<
-          PendingIceCandidate,
-          'createdAt'
-        > & {
+        const parsedCandidate = JSON.parse(rawCandidate) as IceCandidate & {
           createdAt: string;
         };
 

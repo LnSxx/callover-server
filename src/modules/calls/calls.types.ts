@@ -1,10 +1,12 @@
 import { Call, CallType } from '../../entities/call';
+import { RemoteDescription } from '../../entities/remote-description';
 
 export type CallInitParams = {
   type: CallType;
   fromUserId: string;
   toUserId: string;
   socketId: string;
+  remoteDescription: RemoteDescription;
 };
 
 export type CallInitFailReason = 'self-call' | 'callee-busy' | 'caller-busy';
@@ -22,6 +24,7 @@ export type CallInitResult =
 export type CallAcceptParams = {
   calleeUserId: string;
   calleeSocketId: string;
+  remoteDescription: RemoteDescription;
 };
 
 export type CallAcceptFailReason =
