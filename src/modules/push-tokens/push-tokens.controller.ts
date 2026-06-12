@@ -29,7 +29,6 @@ export class PushTokensController {
       platform: dto.platform,
       token: dto.token,
       bundleId: dto.bundleId,
-      deviceId: dto.deviceId,
       appVersion: dto.appVersion,
     });
   }

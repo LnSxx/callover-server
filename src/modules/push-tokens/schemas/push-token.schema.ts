@@ -40,9 +40,6 @@ export class PushToken {
   bundleId!: string;
 
   @Prop({ required: true })
-  deviceId!: string;
-
-  @Prop({ required: true })
   appVersion!: string;
 
   @Prop({ default: true })
