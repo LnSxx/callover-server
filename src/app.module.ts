@@ -26,6 +26,7 @@ import { CallTimeoutsModule } from './modules/call-timeouts/call-timeouts.module
 import { CallTimeoutsProcessorModule } from './modules/call-timeouts-processor/call-timeouts-processor.module';
 import { CallTimeoutsNotifierModule } from './modules/call-timeouts-notifier/call-timeouts-notifier.module';
 import { PushTokensModule } from './modules/push-tokens/push-tokens.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { PushTokensModule } from './modules/push-tokens/push-tokens.module';
     CallTimeoutsProcessorModule,
     CallTimeoutsNotifierModule,
     PushTokensModule,
+    HealthModule,
   ],
   providers: [
     {
