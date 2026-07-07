@@ -3,6 +3,7 @@ import { InjectConnection } from '@nestjs/mongoose';
 import { Connection, ConnectionStates } from 'mongoose';
 import type { RedisClientType } from 'redis';
 import { REDIS_CLIENT } from '../redis/redis.provider';
+import { Public } from '../../common/decorators/public.decorator';
 
 @Controller('health')
 export class HealthController {
@@ -14,6 +15,7 @@ export class HealthController {
     private readonly redisClient: RedisClientType,
   ) {}
 
+  @Public()
   @Get()
   async getHealth() {
     const mongo =
