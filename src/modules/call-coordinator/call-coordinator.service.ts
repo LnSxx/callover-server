@@ -44,13 +44,6 @@ export class CallCoordinatorService {
     const calleeSockets =
       await this.presenceService.getSocketIdsForUser(toUserId);
 
-    if (calleeSockets.length === 0) {
-      return {
-        success: false,
-        reason: 'callee-unavailable',
-      };
-    }
-
     const callStartResult =
       await this.callLifecycleService.tryStartCall(params);
 
