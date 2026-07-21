@@ -1,4 +1,4 @@
-import { CorsOptions } from 'cors';
+import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 
 export type AppEnv = 'local' | 'dev' | 'prod' | 'test';
 

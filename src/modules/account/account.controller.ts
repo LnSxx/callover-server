@@ -11,6 +11,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AccountsService } from './account.service';
 import type { Response } from 'express';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { getCookieSameSite, getCookieSecure } from '../../config/app.config';
 
 @Controller('account')
 export class AccountController {
@@ -55,9 +56,10 @@ export class AccountController {
     res.cookie('sessionId', '', {
       httpOnly: true,
       signed: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: getCookieSameSite(),
+      secure: getCookieSecure(),
       expires: new Date(0),
+      path: '/',
     });
   }
 }
