@@ -10,11 +10,13 @@ import { json } from 'express';
 import process from 'process';
 import { SocketIoRedisAdapter } from './modules/socket-io-redis-adapter/socket-io-redis-adapter';
 import {
+  createHttpCorsOptions,
   createSocketCorsOptions,
   getClientOrigins,
   getRequiredEnv,
   isSwaggerEnabled,
 } from './config/app.config';
+import type { NextFunction, Request, Response } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -26,10 +28,35 @@ async function bootstrap() {
       cors: createSocketCorsOptions(),
     },
   );
+
   await redisIoAdapter.connectToRedis();
   app.useWebSocketAdapter(redisIoAdapter);
 
   app.use(json());
+  app.use(cookieParser(getRequiredEnv('COOKIE_SECRET')));
+
+  app.enableCors(createHttpCorsOptions());
+
+  const allowedOrigins = getClientOrigins();
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) {
+      next();
+      return;
+    }
+
+    const origin = req.headers.origin;
+
+    if (origin && !allowedOrigins.includes(origin)) {
+      res.status(403).json({
+        message: 'Invalid request origin',
+      });
+      return;
+    }
+
+    next();
+  });
+
   app.useGlobalFilters(new HttpExceptionFilter());
 
   app.useGlobalPipes(
@@ -40,25 +67,6 @@ async function bootstrap() {
       exceptionFactory: validationExceptionFactory,
     }),
   );
-
-  app.use(cookieParser(getRequiredEnv('COOKIE_SECRET')));
-
-  const clientOrigins = getClientOrigins();
-
-  app.enableCors({
-    origin(origin, callback) {
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      if (clientOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error(`CORS blocked for origin: ${origin}`), false);
-    },
-    credentials: true,
-  });
 
   if (isSwaggerEnabled()) {
     const config = new DocumentBuilder()
@@ -73,5 +81,5 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 }
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
-bootstrap();
+
+void bootstrap();

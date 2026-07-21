@@ -20,8 +20,6 @@ import { PresenceSubscribeDto } from './dto/presence.subscribe.dto';
 import type { AuthedSocket } from './realtime.types';
 import { CallsService } from '../calls/calls.service';
 import { PresenceEventTypes } from '../presence/presence.events';
-import { CallEndEvent } from '../signaling/signaling.types';
-import { SignalingEventTypes } from '../signaling/signaling.events';
 import {
   PresenceInitialEvent,
   PresenceUserOfflineEvent,
@@ -95,23 +93,25 @@ export class RealtimeGateway
 
     const userId = result.userId;
 
-    const call = await this.callsService.getCall(userId);
+    // TODO: Temporarily disabling call end logic on disconnect due to issues with signaling and call state management. This will be revisited in future updates to ensure proper handling of active calls during disconnections.
 
-    if (call && client.id === call.socketId) {
-      const peerCall = await this.callsService.getCall(call.peerUserId);
-      const peerSocketId = peerCall?.socketId;
+    // const call = await this.callsService.getCall(userId);
 
-      if (peerSocketId) {
-        this.server.to(peerSocketId).emit('message', {
-          type: SignalingEventTypes.CallEnd,
-          payload: {
-            fromUserId: userId,
-          },
-        } as CallEndEvent);
-      }
+    // if (call && client.id === call.socketId) {
+    //   const peerCall = await this.callsService.getCall(call.peerUserId);
+    //   const peerSocketId = peerCall?.socketId;
 
-      await this.callsService.endCall(userId);
-    }
+    //   if (peerSocketId) {
+    //     this.server.to(peerSocketId).emit('message', {
+    //       type: SignalingEventTypes.CallEnd,
+    //       payload: {
+    //         fromUserId: userId,
+    //       },
+    //     } as CallEndEvent);
+    //   }
+
+    //   await this.callsService.endCall(userId);
+    // }
 
     if (result.becameOffline) {
       const watcherUserIds =
